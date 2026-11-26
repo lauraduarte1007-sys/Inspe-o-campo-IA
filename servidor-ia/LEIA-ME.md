@@ -38,7 +38,11 @@ Variáveis opcionais (mesma tela, tipo **Texto**):
 
 ## Custo estimado
 
-Cada item manda até 4 fotos de 1280 px. Com o Claude Sonnet 5.5, isso dá cerca de 8 mil tokens de entrada e algumas centenas de saída por item, ou seja, por volta de **US$ 0,02 por item** (preço de tabela: US$ 2 por milhão de tokens de entrada e US$ 10 por milhão de saída). Preços atualizados: https://platform.claude.com/docs/en/about-claude/pricing
+Cada item manda até 4 fotos de 1280 px. Com o Claude Sonnet 5.5, isso dá cerca de 8 mil tokens de entrada e algumas centenas de saída por item, ou seja, por volta de **US$ 0,02 por item** (preço de tabela: US$ 2 por milhão de tokens de entrada e US$ 10 por milhão de saída). Com o **Claude Haiku 5.5** (variável `MODEL` = `claude-haiku-5-5`), cai para cerca de **US$ 0,001 a 0,002 por item**, ou US$ 1 a 2 a cada mil itens (US$ 0,10 por milhão de tokens de entrada e US$ 0,50 por milhão de saída). Preços atualizados: https://platform.claude.com/docs/en/about-claude/pricing
+
+O Cloudflare não cobra nada: o plano gratuito aceita 100 mil pedidos por dia e 10 ms de processamento por pedido. Este servidor usa cerca de 4 ms por pedido (o tempo esperando o Claude responder não conta). Se um dia passar de 100 mil pedidos, ele só para de responder até a meia-noite UTC (21h em Brasília).
+
+Se você já tinha colado o `worker.js` no Cloudflare antes de 26/11/2026, cole a versão nova e implante de novo: ela gasta metade do processamento.
 
 ## Levar para a TI depois
 

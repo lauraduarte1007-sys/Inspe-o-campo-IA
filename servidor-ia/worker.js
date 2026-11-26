@@ -10,6 +10,7 @@
 const JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
 const API_URL = 'https://api.anthropic.com/v1/messages';
 let jwks = null, jwksUntil = 0;
+const ckeys = new Map();     // kid -> chave já importada (evita refazer a cada pedido)
 const seen = new Map();      // uid -> {ok, until}   (cache curto do status do cadastro)
 const hits = new Map();      // uid -> [timestamps]  (limite de pedidos por pessoa)
 
@@ -22,7 +23,7 @@ async function googleKeys() {
   const r = await fetch(JWKS_URL);
   if (!r.ok) throw new Err(503, 'auth-indisponivel');
   const j = await r.json(), m = /max-age=(\d+)/.exec(r.headers.get('cache-control') || '');
-  jwks = j.keys || []; jwksUntil = Date.now() + (m ? +m[1] * 1000 : 3600e3);
+  jwks = j.keys || []; jwksUntil = Date.now() + (m ? +m[1] * 1000 : 3600e3); ckeys.clear();
   return jwks;
 }
 
@@ -35,7 +36,8 @@ async function verifyToken(token, project) {
   if (head.alg !== 'RS256') throw new Err(401, 'auth');
   const jwk = (await googleKeys()).find(k => k.kid === head.kid);
   if (!jwk) throw new Err(401, 'auth');
-  const key = await crypto.subtle.importKey('jwk', { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: 'RS256', ext: true }, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+  let key = ckeys.get(head.kid);
+  if (!key) { key = await crypto.subtle.importKey('jwk', { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: 'RS256', ext: true }, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']); ckeys.set(head.kid, key); }
   const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64u(parts[2]), new TextEncoder().encode(parts[0] + '.' + parts[1]));
   const now = Date.now() / 1000;
   if (!ok || pay.aud !== project || pay.iss !== 'https://securetoken.google.com/' + project || !pay.sub || !(pay.exp > now) || pay.iat > now + 300) throw new Err(401, 'auth');
@@ -60,6 +62,15 @@ function rateOk(uid) {
   return true;
 }
 
+// Confere só o começo e o fim de cada foto: percorrer o texto inteiro (cerca de 1 MB) gastaria quase metade
+// do limite de CPU do plano grátis do Cloudflare (10 ms por pedido). O Claude valida a imagem completa.
+const IMG = /^data:(image\/(?:jpeg|png|webp));base64,/, B64 = /^[A-Za-z0-9+/]*={0,2}$/;
+function foto(f) {
+  const s = typeof f === 'string' ? f : '', m = IMG.exec(s.slice(0, 40)), d = m ? s.slice(m[0].length) : '';
+  if (!d || d.length > 4_000_000 || !B64.test(d.slice(0, 64)) || !B64.test(d.slice(-64))) throw new Err(400, 'ia-erro');
+  return { type: 'image', source: { type: 'base64', media_type: m[1], data: d } };
+}
+
 const clean = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, 200);
 const list = v => Array.isArray(v) ? [...new Set(v.map(clean).filter(Boolean))].slice(0, 400) : [];
 
@@ -67,11 +78,7 @@ function buildRequest(body, model) {
   const fotos = Array.isArray(body.fotos) ? body.fotos : [];
   if (!fotos.length) throw new Err(400, 'ia-sem-foto');
   if (fotos.length > 4) throw new Err(400, 'ia-erro');
-  const imgs = fotos.map(f => {
-    const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/.exec(String(f));
-    if (!m || m[2].length > 4_000_000) throw new Err(400, 'ia-erro');
-    return { type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } };
-  });
+  const imgs = fotos.map(foto);
   const c = body.contexto || {}, L = c.listas || {};
   const elem = list(L.elemento), mat = list(L.material), causa = list(L.causa), orig = list(L.origem);
   const porMat = {}; let manif = [];
@@ -119,7 +126,7 @@ async function callClaude(env, req) {
   let r = await send(req);
   if (r.status === 400) {   // se esta versão da API não aceitar o nível de esforço, tenta sem ele
     const t = await r.text();
-    if (/effort/i.test(t)) { const q = structuredClone(req); delete q.output_config.effort; r = await send(q); }
+    if (/effort/i.test(t)) r = await send(Object.assign({}, req, { output_config: { format: req.output_config.format } }));
     else return { status: 400, text: t };
   }
   return { status: r.status, text: await r.text() };
