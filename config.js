@@ -16,5 +16,5 @@ window.INSP_CONFIG = {
     prefixo: 'ia_',
     app: 'ia'
   },
-  ia: { url: '' }   // endereço do servidor da IA (Cloudflare Worker), por exemplo 'https://inspecao-ia.seu-nome.workers.dev'
+  ia: { url: 'https://inspecao-ia.laura-duarte1007.workers.dev' }   // endereço do servidor da IA (Cloudflare Worker)
 };
