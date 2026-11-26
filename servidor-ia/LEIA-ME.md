@@ -11,10 +11,10 @@ A chave da API do Claude **não pode ficar no app**: qualquer pessoa que abrisse
 
 ## 1. Chave da API do Claude
 
-1. Entre em **platform.claude.com** (Claude Console) e crie a conta da empresa.
-2. Em **Billing**, adicione créditos. O uso da API é cobrado por consumo.
-3. Em **API Keys**, crie uma chave (por exemplo, `inspecao-ia`) e copie. Ela só aparece uma vez.
-4. Guarde a chave só no Cloudflare (passo 2). Não mande a chave por chat, e-mail ou código.
+1. Entre em **platform.claude.com** (Claude Console) e crie a conta. Conta nova pode resgatar um crédito grátis confirmando o celular. Depois, compre créditos em **Adicionar saldo** (Billing). O uso da API é cobrado por consumo.
+2. Em **Chaves de API** (API keys), toque em **Criar chave** e escolha **Em outro lugar** (usar uma chave de API).
+3. Preencha: nome `inspecao-ia`; validade **Nunca** (se a chave expirar, a IA para até você criar outra); conta vinculada: você; **espaço de trabalho: escolha um**. Sem espaço de trabalho, o servidor também precisaria da variável `ANTHROPIC_WORKSPACE_ID`.
+4. Copie a chave (começa com `sk-ant-`): ela só aparece uma vez. Guarde a chave só no Cloudflare (passo 2). Não mande a chave por chat, e-mail ou código.
 
 ## 2. Publicar o servidor no Cloudflare
 
@@ -24,7 +24,7 @@ A chave da API do Claude **não pode ficar no app**: qualquer pessoa que abrisse
 4. Em **Configurações → Variáveis e segredos**, adicione:
    - Tipo **Segredo**, nome `ANTHROPIC_API_KEY`, valor: a chave do passo 1.
    - Salve e implante de novo, se o painel pedir.
-5. Abra o endereço do Worker no navegador (algo como `https://inspecao-ia.<sua-conta>.workers.dev`). Deve aparecer `{"ok":true,"app":"inspecao-ia","chave":true}`.
+5. Abra o endereço do Worker no navegador (algo como `https://inspecao-ia.<sua-conta>.workers.dev`). Deve aparecer `"chave":true` e `"claude":"ok"`. Se em `"claude"` aparecer outra mensagem, ela diz o que corrigir (chave recusada, modelo não encontrado ou espaço de trabalho). Esse teste não confere o saldo: sem créditos, o app avisa na hora de pedir a sugestão.
 6. Coloque esse endereço no arquivo `config.js` deste repositório, no campo `ia: { url: '...' }`, ou mande para quem mantém o app.
 
 Variáveis opcionais (mesma tela, tipo **Texto**):
@@ -35,6 +35,7 @@ Variáveis opcionais (mesma tela, tipo **Texto**):
 | `ALLOWED_ORIGIN` | `https://lauraduarte1007-sys.github.io` | Site que pode usar o servidor (separe vários por vírgula). |
 | `FIREBASE_PROJECT_ID` | `inspecao-campo` | Projeto Firebase do login. |
 | `USERS_COLLECTION` | `ia_users` | Coleção dos cadastros da cópia com IA. |
+| `ANTHROPIC_WORKSPACE_ID` | (vazio) | Só se a chave foi criada sem espaço de trabalho: o ID do espaço (`wrkspc_...`). |
 
 ## Custo estimado
 

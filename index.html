@@ -587,7 +587,7 @@ function instHTML(){if(!SA||instNo||isInst()||!document.querySelector('link[rel=
 /* ---------- IA: o Claude olha as fotos do item e sugere a classificação e a descrição (o inspetor confere) ---------- */
 const IA=CONF.ia?{url:String(CONF.ia.url||'').replace(/\/+$/,''),auto:CONF.ia.auto!==false}:null;
 let DEV='',iaBusy=new Set(),iaT=0;
-const IAERR={'ia-sem-foto':'Tire pelo menos uma foto para a IA analisar.','ia-config':'A IA ainda não está configurada no servidor (chave do Claude).','ia-ocupada':'A IA está ocupada agora. Tente de novo em instantes.',
+const IAERR={'ia-sem-foto':'Tire pelo menos uma foto para a IA analisar.','ia-config':'A IA ainda não está configurada no servidor (chave ou modelo do Claude).','ia-saldo':'A conta do Claude está sem créditos. Adicione saldo no Claude Console.','ia-ocupada':'A IA está ocupada agora. Tente de novo em instantes.',
   'ia-limite':'Muitos pedidos seguidos para a IA. Aguarde alguns minutos.','ia-erro':'A IA não conseguiu analisar estas fotos.',auth:'Entre de novo para usar a IA.',denied:'Seu acesso não permite usar a IA.',net:'Sem conexão com a IA.'};
 async function devId(){if(DEV)return DEV;DEV=(await IDB.get('meta','dev'))||nid();IDB.put('meta','dev',DEV);return DEV}
 async function iaSugerir(a){const i=docs.get(a.insp),fotos=[];
