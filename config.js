@@ -1,8 +1,8 @@
-/* Cópia de teste do app com IA (Claude). Dados separados do app principal: coleções ia_ no mesmo Firebase,
-   banco local próprio no aparelho e login próprio. */
+/* Cópia de teste do app com IA (Gemini grátis do Google, pelo servidor da IA no Cloudflare). Dados separados do app principal:
+   coleções ia_ no mesmo Firebase, banco local próprio no aparelho e login próprio. */
 window.INSP_CONFIG = {
   titulo: 'Inspeção IA',
-  aviso: 'Versão de teste com IA. Os dados ficam separados do app principal.',
+  aviso: 'Versão de teste com IA grátis do Google (Gemini): as fotos enviadas à IA podem ser usadas pelo Google. Os dados ficam separados do app principal.',
   db: 'inspEstrIA',
   chave: 'inspEstrIA',
   backend: 'firebase',

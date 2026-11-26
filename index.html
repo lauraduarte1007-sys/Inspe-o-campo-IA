@@ -447,7 +447,7 @@ async function accessLost(e){stopSync();
 function setMe(p){if(!p)return;ME={uid:p.uid,mat:p.mat,nome:p.nome,role:p.role,status:p.status,bk:BK};IDB.put('meta','me',ME);
   if(ME.status==='ativo'){const was=AU.st;AU.st='in';if(!entered)enter();else if(was!=='in')render();else if(!S.ed&&S.view==='list')vList()}
   else{stopSync();AU.st='pend';entered=false;render()}}
-async function enter(){entered=true;AU.err='';AU.busy=false;render();await teamTpl();if(AU.st!=='in')return;await restoreUI();if(AU.st!=='in')return;startSync();if(isAdm())loadUsers()}
+async function enter(){entered=true;AU.err='';AU.busy=false;render();await teamTpl();if(AU.st!=='in')return;await restoreUI();if(AU.st!=='in')return;startSync();if(isAdm())loadUsers();if(IA)setTimeout(iaRun,4000)}
 async function boot(){
   try{B=MODE==='firebase'?mkFb(CONF.firebase):mkApi(CONF.api.url)}catch(e){B=null}
   let uid=null;try{uid=B&&await B.init()}catch(e){AU.err=msgErr(e)}
@@ -584,11 +584,13 @@ function instHTML(){if(!SA||instNo||isInst()||!document.querySelector('link[rel=
   const t=isIOS()?'No Safari, toque em <b>Compartilhar</b> e depois em <b>Adicionar à Tela de Início</b>. Use sempre o ícone “Inspeção”: no iPhone ele guarda os dados separado do Safari, então '+(MODE==='local'?'carregue o modelo':'entre com a matrícula')+' já pelo ícone.'
     :BIP?'Fica um ícone na tela inicial, abre em tela cheia e funciona sem internet.':'No menu do navegador (⋮), toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>. Fica um ícone, abre em tela cheia e funciona sem internet.';
   return `<div class="inst"><b>Instale o app neste celular</b><p>${t}</p><div class="row">${BIP?'<button class="btn pri sm" data-a="inst">Instalar app</button>':''}<button class="btn sm" data-a="instno">Agora não</button></div></div>`}
-/* ---------- IA: o Claude olha as fotos do item e sugere a classificação e a descrição (o inspetor confere) ---------- */
+/* ---------- IA: olha as fotos do item e sugere a classificação e a descrição (o inspetor confere) ---------- */
 const IA=CONF.ia?{url:String(CONF.ia.url||'').replace(/\/+$/,''),auto:CONF.ia.auto!==false}:null;
-let DEV='',iaBusy=new Set(),iaT=0;
-const IAERR={'ia-sem-foto':'Tire pelo menos uma foto para a IA analisar.','ia-config':'A IA ainda não está configurada no servidor (chave ou modelo do Claude).','ia-saldo':'A conta do Claude está sem créditos. Adicione saldo no Claude Console.','ia-ocupada':'A IA está ocupada agora. Tente de novo em instantes.',
-  'ia-limite':'Muitos pedidos seguidos para a IA. Aguarde alguns minutos.','ia-erro':'A IA não conseguiu analisar estas fotos.',auth:'Entre de novo para usar a IA.',denied:'Seu acesso não permite usar a IA.',net:'Sem conexão com a IA.'};
+let DEV='',iaBusy=new Set(),iaT=0,iaPausa=0;
+try{iaPausa=+localStorage.getItem(KP+'.iaPausa')||0}catch(e){}
+function iaPausar(ms){iaPausa=Date.now()+ms;try{localStorage.setItem(KP+'.iaPausa',String(iaPausa))}catch(e){}}
+const IAERR={'ia-sem-foto':'Tire pelo menos uma foto para a IA analisar.','ia-config':'A IA ainda não está configurada no servidor (chave ou modelo).','ia-saldo':'A conta do Claude está sem créditos. Adicione saldo no Claude Console.','ia-ocupada':'A IA está ocupada agora. Tente de novo em instantes.',
+  'ia-limite-dia':'A cota grátis de hoje da IA acabou. Ela renova de madrugada; o item fica na fila.','ia-limite':'Muitos pedidos seguidos para a IA. Aguarde alguns minutos.','ia-erro':'A IA não conseguiu analisar estas fotos.',auth:'Entre de novo para usar a IA.',denied:'Seu acesso não permite usar a IA.',net:'Sem conexão com a IA.'};
 async function devId(){if(DEV)return DEV;DEV=(await IDB.get('meta','dev'))||nid();IDB.put('meta','dev',DEV);return DEV}
 async function iaSugerir(a){const i=docs.get(a.insp),fotos=[];
   for(const f of a.fotos.slice(0,MAXF)){const r=await getPhoto(f.id);if(r&&okImg(r.data))fotos.push(r.data)}
@@ -608,7 +610,7 @@ function iaInner(a){const s=a.ia&&a.ia.sug;
     return `<b>✨ Sugestão da IA${a.ia.usada?' · aplicada':''}</b><dl>${row(CFG.lab.elem,s.elemento)}${row(CFG.lab.mat,s.material)}${row(CFG.lab.manif,s.manifestacao)}${row(CFG.lab.causa,s.causa)}${row(CFG.lab.orig,s.origem)}${row('Descrição',s.descricao)}${row('Observações',s.observacoes)}${row('Confiança',s.confianca)}</dl>
     <div class="row">${a.ia.usada?'':'<button class="btn pri sm" data-a="iausar">Usar nos campos vazios</button><button class="btn sm" data-a="iatudo">Substituir tudo</button>'}<button class="btn sm" data-a="iadesc">Descartar</button></div>
     ${a.ia.usada?'<p class="note">Os campos foram preenchidos com a sugestão. Confira antes de salvar.</p>':'<p class="note">Sugestão automática: confira com o que você vê em campo.</p>'}`}
-  if(a.iaPend)return `<b>✨ Sugestão da IA</b><p class="mut">Na fila: a IA analisa as fotos assim que houver internet.</p>`;
+  if(a.iaPend)return `<b>✨ Sugestão da IA</b><p class="mut">${iaPausa>Date.now()?'Na fila: a cota grátis de hoje da IA acabou. Ela analisa as fotos quando a cota renovar (de madrugada).':navigator.onLine===false?'Na fila: a IA analisa as fotos assim que houver internet.':'Na fila: a IA analisa as fotos em instantes.'}</p>`;
   if(!IA.url)return '<b>✨ Sugestão da IA</b><p class="mut">A IA ainda não foi ligada: falta configurar o servidor da IA.</p>';
   return `<b>✨ Sugestão da IA</b><p class="mut">A IA olha as fotos e sugere ${esc(String(CFG.lab.elem||'elemento').toLowerCase())}, material, manifestação, causa, origem e uma descrição. Você confere antes de salvar.</p>
    ${a.iaErr?`<p class="aerr">${esc(a.iaErr)}</p>`:''}<button class="btn sm" data-a="iasug" ${a.fotos.length?'':'disabled'}>${a.iaErr?'Tentar de novo':'Sugerir com IA'}</button>${a.fotos.length?'':'<p class="note">Tire pelo menos uma foto primeiro.</p>'}`}
@@ -617,20 +619,23 @@ function iaBox(){const b=$('#iabox');if(b&&S.ed)b.innerHTML=iaInner(S.ed)}
 async function iaPedir(){const a=S.ed;if(!a||!IA)return;delete a.iaErr;
   if(navigator.onLine===false){a.iaPend={dev:await devId(),em:Date.now()};saveDraft(true);iaBox();st('A IA analisa quando houver internet');return}
   iaBusy.add(a.id);iaBox();
-  try{const sug=await iaSugerir(a);if(S.ed&&S.ed.id===a.id){S.ed.ia={sug,em:Date.now()};delete S.ed.iaPend;saveDraft(true)}}
-  catch(e){if(e.code==='net'){a.iaPend={dev:await devId(),em:Date.now()};st('A IA analisa quando houver internet')}else a.iaErr=iaMsg(e);saveDraft(true)}
+  try{const sug=await iaSugerir(a);if(iaPausa>Date.now())iaPausar(0);if(S.ed&&S.ed.id===a.id){S.ed.ia={sug,em:Date.now()};delete S.ed.iaPend;saveDraft(true)}}
+  catch(e){if(e.code==='net'||e.code==='ia-limite-dia'){a.iaPend={dev:await devId(),em:Date.now()};if(e.code==='net')st('A IA analisa quando houver internet');else{iaPausar(18e5);st(IAERR['ia-limite-dia'])}}else a.iaErr=iaMsg(e);saveDraft(true)}
   iaBusy.delete(a.id);iaBox()}
 function iaUsar(tudo){const a=S.ed,s=a&&a.ia&&a.ia.sug;if(!s)return;
   const set=(k,v)=>{if(v&&(tudo||!String(a[k]||'').trim()))a[k]=v};
   set('elem',s.elemento);set('mat',s.material);set('manif',s.manifestacao);set('causa',s.causa);set('orig',s.origem);set('descr',s.descricao);
   a.ia.usada=Date.now();saveDraft(true);drawSheet()}
-/* fila: itens salvos com fotos e sem descrição vão para a IA quando houver internet (cada aparelho cuida dos próprios pedidos) */
+/* fila: itens salvos com fotos e sem descrição vão para a IA quando houver internet (cada aparelho cuida dos próprios pedidos).
+   IA ocupada: tenta de novo na volta seguinte (1 min). Cota grátis do dia acabou: os itens continuam na fila e a IA espera 30 min para tentar de novo. */
 async function iaRun(){clearTimeout(iaT);if(!IA||!IA.url||AU.st!=='in'||!CFG||!B)return;const me=await devId();
-  if(navigator.onLine!==false)for(const o of [...docs.values()]){
+  if(navigator.onLine!==false&&Date.now()>=iaPausa)for(const o of [...docs.values()]){
     if(o.kind!=='anom'||!o.iaPend||iaBusy.has(o.id))continue;if(o.iaPend.dev!==me&&Date.now()-(+o.iaPend.em||0)<18e5)continue;
     iaBusy.add(o.id);if(S.ed&&S.ed.id===o.id)iaBox();
     try{const sug=await iaSugerir(o),x=docs.get(o.id);if(x){x.ia={sug,em:Date.now()};delete x.iaPend;delete x.iaErr;persist(x);if(S.ed&&S.ed.id===x.id){S.ed.ia=x.ia;delete S.ed.iaPend;saveDraft(true)}}}
-    catch(e){iaBusy.delete(o.id);if(e.code==='net')break;const x=docs.get(o.id);if(x){delete x.iaPend;x.iaErr=iaMsg(e);persist(x)}}
+    catch(e){iaBusy.delete(o.id);if(e.code==='ia-limite-dia')iaPausar(18e5);
+      if(e.code==='net'||e.code==='ia-ocupada'||e.code==='ia-limite-dia'){if(S.ed&&S.ed.id===o.id)iaBox();else onRemote();break}
+      const x=docs.get(o.id);if(x){delete x.iaPend;x.iaErr=iaMsg(e);persist(x);if(S.ed&&S.ed.id===x.id){delete S.ed.iaPend;S.ed.iaErr=x.iaErr;saveDraft(true)}}}
     iaBusy.delete(o.id);if(S.ed&&S.ed.id===o.id)iaBox();else onRemote()}
   iaT=setTimeout(iaRun,60000)}
 addEventListener('online',()=>setTimeout(iaRun,1500));
