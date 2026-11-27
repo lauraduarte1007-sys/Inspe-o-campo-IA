@@ -17,8 +17,8 @@ Na tela inicial, o botão **Acompanhamento das anomalias** abre todas as anomali
 
 - resumo geral e por prédio: abertas, em andamento, concluídas, atrasadas e % concluído;
 - filtros por prédio e por status, e ordem por prazo, risco ou GUT;
-- em cada anomalia, **status** (aberta, em andamento, concluída), **prazo** (vem do modelo pelo risco e pela GUT; pode ser trocado), **data de conclusão** e **observação**. Tudo sincroniza com a equipe na hora, como o resto da inspeção;
-- **Exportar compilado (.xlsx)**: uma planilha nova com as abas **Compilação** (uma linha por prédio, com totais), **Acompanhamento** (uma linha por anomalia, com as colunas em amarelo para preencher e situação calculada por fórmula) e **Critérios** (as faixas de risco e de GUT do modelo, usadas nas fórmulas).
+- em cada anomalia: **carrossel com todas as fotos do item** (toque para ver em tela cheia e deslize entre elas), **status** (aberta, em andamento, concluída), **prazo** (vem do modelo pelo risco e pela GUT; pode ser trocado), **data de conclusão** e **atualizações com data** (linha do tempo do que foi feito, com quem registrou). Tudo sincroniza com a equipe na hora;
+- **Exportar compilado (.xlsx)**: planilha no padrão do relatório de inspeção, com as abas **Compilação** (indicadores e uma linha por prédio, com totais), **Acompanhamento** (uma linha por anomalia; colunas em amarelo para preencher e situação calculada por fórmula), **Registro fotográfico** (as fotos de cada anomalia lado a lado, com legenda; a coluna Fotos do Acompanhamento leva até elas) e **Critérios** (faixas de risco e de GUT do modelo, usadas nas fórmulas).
 
 Itens de bom estado e pontos cegos não contam como anomalias. Uma anomalia concluída deixa de contar como prazo vencido na lista de inspeções.
 

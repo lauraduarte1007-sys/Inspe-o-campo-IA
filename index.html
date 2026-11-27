@@ -147,6 +147,28 @@ details.acd[open]>summary.an{border-radius:12px 12px 0 0;border-bottom-color:tra
 .bd.ast-concluida{background:#2e7d32;color:#fff}
 .btn.acgo{width:100%;margin:-6px 0 18px;flex-wrap:wrap;gap:8px}
 .acfl{margin-bottom:6px}
+.acph{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;padding:8px 0 10px;margin:0 -2px}
+.acfo{flex:0 0 78%;max-width:340px;aspect-ratio:4/3;border:0;border-radius:10px;background:var(--line) center/cover no-repeat;scroll-snap-align:start;position:relative;cursor:zoom-in;padding:0}
+.acfo span{position:absolute;left:0;right:0;bottom:0;padding:16px 10px 7px;border-radius:0 0 10px 10px;background:linear-gradient(transparent,rgba(0,0,0,.72));color:#fff;font-size:12px;font-weight:600;text-align:left}
+.ach{border-top:1px solid var(--line);margin-top:12px;padding-top:8px}
+.hl{list-style:none;padding:0;margin:8px 0 10px}
+.hl li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:start;padding:8px 0;border-bottom:1px dashed var(--line)}
+.hl .hd{font-weight:700;font-size:13px;background:var(--pan);border-radius:6px;padding:2px 8px;white-space:nowrap}
+.hl .ht{font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.hl .ht small{display:block;color:var(--mut);font-size:12px}
+.hl .hx{border:1px solid var(--line);background:var(--bg);border-radius:8px;min-width:36px;min-height:32px;font-size:13px;cursor:pointer;color:#c81e1e}
+.hnew{margin-top:4px}
+.lb{position:fixed;inset:0;z-index:90;background:#000;display:flex;flex-direction:column}
+.lbt{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#fff;padding:calc(env(safe-area-inset-top) + 6px) 8px 6px 14px;font-weight:700;font-size:15px}
+.lbx{background:none;border:0;color:#fff;font-size:26px;min-width:48px;min-height:48px;cursor:pointer}
+.lbs{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior:contain}
+.lbs::-webkit-scrollbar{display:none}
+.lbf{flex:0 0 100%;margin:0;scroll-snap-align:center;display:flex;flex-direction:column;min-width:0}
+.lbi{flex:1;background:center/contain no-repeat}
+.lbf figcaption{color:#fff;padding:10px 16px calc(env(safe-area-inset-bottom) + 14px);font-size:14px}
+.lbf figcaption small{display:block;color:#c9ced6;font-size:12px;margin-top:2px}
+.lbn{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);color:#fff;border:0;font-size:36px;width:46px;height:70px;border-radius:10px;cursor:pointer}
+.lbp{left:6px}.lbq{right:6px}
 </style>
 </head>
 <body>
@@ -555,7 +577,9 @@ function norm(o){
     o.fotos=(Array.isArray(o.fotos)?o.fotos:[]).map(f=>{if(typeof f==='string'){if(!okImg(f))return null;mig=true;const id=nid();putPhoto(id,{data:f,w:0,h:0});return{id,w:0,h:0,t:'',leg:'',ts:0}}return normF(f)}).filter(Boolean);
     if(mig)setTimeout(()=>{if(docs.get(o.id)===o)persist(o)},0);
     if(o.acomp!==undefined){const c=o.acomp;if(!c||typeof c!=='object'||Array.isArray(c))delete o.acomp;
-      else o.acomp={st:['aberta','andamento','concluida'].includes(c.st)?c.st:'aberta',prazo:isDate(c.prazo)?c.prazo:'',concl:isDate(c.concl)?c.concl:'',obs:typeof c.obs==='string'?c.obs.slice(0,1000):'',em:+c.em||0,por:typeof c.por==='string'?c.por.slice(0,80):''}}
+      else{const em=+c.em||0,por=typeof c.por==='string'?c.por.slice(0,80):'',hist=(Array.isArray(c.hist)?c.hist:[]).filter(u=>u&&typeof u==='object'&&String(u.t||'').trim()).slice(-200).map(u=>({id:okId(u.id)?u.id:'h'+(+u.em||0),d:isDate(u.d)?u.d:'',t:String(u.t).slice(0,1000),por:typeof u.por==='string'?u.por.slice(0,80):'',uid:typeof u.uid==='string'?u.uid.slice(0,128):'',em:+u.em||0}));
+        if(typeof c.obs==='string'&&c.obs.trim()&&!hist.length){const dd=em?new Date(em):null;hist.push({id:'o'+em,d:dd?`${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`:'',t:c.obs.trim().slice(0,1000),por,uid:'',em})}
+        o.acomp={st:['aberta','andamento','concluida'].includes(c.st)?c.st:'aberta',prazo:isDate(c.prazo)?c.prazo:'',concl:isDate(c.concl)?c.concl:'',hist,em,por}}}
     return o}
   return null}
 
@@ -661,42 +685,50 @@ async function iaRun(){clearTimeout(iaT);if(!IA||!IA.url||AU.st!=='in'||!CFG||!B
 addEventListener('online',()=>setTimeout(iaRun,1500));
 
 /* ---------- acompanhamento das anomalias de todos os prédios (ligado por CONF.acomp) ----------
-   Cada anomalia guarda a.acomp = {st, prazo, concl, obs, em, por}, sincronizado com a equipe como o resto do item.
+   Cada anomalia guarda a.acomp = {st, prazo, concl, hist:[{id,d,t,por,uid,em}], em, por}, sincronizado com a equipe como o resto do item.
    Prazo vazio = prazo do modelo (risco/GUT + data da inspeção). Itens "bom estado" e "ponto cego" não entram. */
 const AST=[['aberta','Aberta'],['andamento','Em andamento'],['concluida','Concluída']];
 const astL=k=>(AST.find(x=>x[0]===k)||AST[0])[1];
 const ddays=(a,b)=>Math.round((Date.parse(b+'T12:00:00Z')-Date.parse(a+'T12:00:00Z'))/864e5);
 const SIT={atrasada:['Atrasada','#c81e1e','#fff'],vence:['Vence em até 30 dias','#ffc000','#1a1a1a'],noprazo:['No prazo','#92d050','#1a1a1a'],semprazo:['Sem prazo','',''],concluida:['Concluída','#2e7d32','#fff'],conclatraso:['Concluída com atraso','#2e7d32','#fff']};
 const ICK='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="m3 6 1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17"/></svg>';
-function acOf(a,i){const c=a.acomp||{},s=score(a,i&&i.d),st=AST.some(x=>x[0]===c.st)?c.st:'aberta',prazo=isDate(c.prazo)?c.prazo:(s.prazo||''),concl=st==='concluida'&&isDate(c.concl)?c.concl:'';
+const histOrd=L=>(Array.isArray(L)?L:[]).slice().sort((x,y)=>String(y.d||'').localeCompare(String(x.d||''))||(+y.em||0)-(+x.em||0));
+function acOf(a,i){const c=a.acomp||{},s=score(a,i&&i.d),st=AST.some(x=>x[0]===c.st)?c.st:'aberta',prazo=isDate(c.prazo)?c.prazo:(s.prazo||''),concl=st==='concluida'&&isDate(c.concl)?c.concl:'',hist=histOrd(c.hist);
   let sit,dias=null;
   if(st==='concluida')sit=concl&&prazo&&concl>prazo?'conclatraso':'concluida';
   else if(!prazo)sit='semprazo';
   else{dias=ddays(today(),prazo);sit=dias<0?'atrasada':dias<=30?'vence':'noprazo'}
-  return{st,prazo,pm:s.prazo||'',concl,obs:typeof c.obs==='string'?c.obs:'',sit,dias,s,por:c.por||'',em:+c.em||0}}
+  return{st,prazo,pm:s.prazo||'',concl,hist,ult:(hist.find(u=>isDate(u.d))||{}).d||'',sit,dias,s,por:c.por||'',em:+c.em||0}}
 const acSitTxt=o=>o.sit==='conclatraso'?'Com atraso':o.sit==='atrasada'?`Atrasada há ${pl(-o.dias,'dia','dias')}`:o.sit==='vence'?(o.dias===0?'Vence hoje':`Vence em ${pl(o.dias,'dia','dias')}`):SIT[o.sit][0];
 const acBadge=o=>{const [,b,f]=SIT[o.sit];return `<span class="bd${b?'':' pe'}"${b?` style="background:${b};color:${f}"`:''}>${esc(acSitTxt(o))}</span>`};
 const predio=i=>String(i.d.tag||'').trim()||'Ativo sem TAG';
 const acInsps=()=>insps().slice().sort((x,y)=>predio(x).localeCompare(predio(y),'pt',{numeric:true})||String(x.d.data||'').localeCompare(String(y.d.data||''))||x.created-y.created);
 function acRows(){const R=[];for(const i of acInsps())anoms(i.id).forEach((a,k)=>{if(!SPECIAL(a.manif))R.push({a,i,n:k+1,o:acOf(a,i)})});return R}
 const acCount=L=>({n:L.length,ab:L.filter(r=>r.o.st==='aberta').length,an:L.filter(r=>r.o.st==='andamento').length,co:L.filter(r=>r.o.st==='concluida').length,at:L.filter(r=>r.o.sit==='atrasada').length});
-function acSet(id,ch){const a=docs.get(id);if(!a||a.kind!=='anom')return;const c=Object.assign({st:'aberta',prazo:'',concl:'',obs:''},a.acomp||{},ch);
+const acBase=a=>Object.assign({st:'aberta',prazo:'',concl:'',hist:[]},a.acomp||{});
+function acSet(id,ch){const a=docs.get(id);if(!a||a.kind!=='anom')return;const c=Object.assign(acBase(a),ch);
   if(ch.st==='concluida'&&!isDate(c.concl))c.concl=today();
   if(ch.st&&ch.st!=='concluida')c.concl='';
   c.em=Date.now();c.por=ME?ME.nome:'';a.acomp=c;persist(a)}
+// atualizações com data (linha do tempo da tratativa)
+function acAddHist(id,d,t){const a=docs.get(id);if(!a||a.kind!=='anom')return false;t=String(t||'').trim().slice(0,1000);if(!t)return false;
+  const c=acBase(a);c.hist=[...(Array.isArray(c.hist)?c.hist:[]),{id:nid(),d:isDate(d)?d:today(),t,por:ME?ME.nome:'',uid:ME?ME.uid:'',em:Date.now()}];
+  c.em=Date.now();c.por=ME?ME.nome:'';a.acomp=c;persist(a);return true}
+function acDelHist(id,hid){const a=docs.get(id);if(!a||!a.acomp)return;const c=acBase(a);c.hist=(c.hist||[]).filter(u=>u.id!==hid);c.em=Date.now();c.por=ME?ME.nome:'';a.acomp=c;persist(a)}
+const canDelH=u=>MODE==='local'||isAdm()||!u.uid||(ME&&u.uid===ME.uid);
 let CRES='';
 // redesenha a tela quando chegam mudanças da equipe, mas espera a pessoa terminar de digitar ou de tocar
 function acLater(){clearTimeout(S.acT);S.acT=setTimeout(()=>{if(S.view!=='acomp'||S.ed)return;const ae=document.activeElement;if(S.ptr||(ae&&ae.matches&&ae.matches('#main input,#main textarea'))){acLater();return}vAcomp()},500)}
-// atualiza só o resumo de um cartão (prazo, conclusão, observação), sem tirar o foco do campo
+// atualiza só o resumo de um cartão (prazo, conclusão), sem tirar o foco do campo
 function acRefresh(id){const el=[...document.querySelectorAll('details.acd')].find(d=>d.dataset.acid===id),a=docs.get(id),i=a&&docs.get(a.insp);if(!el||!i)return;
   const tmp=document.createElement('div');tmp.innerHTML=acCard({a,i,n:anoms(i.id).findIndex(x=>x.id===id)+1,o:acOf(a,i)});
   const ns=tmp.querySelector('summary'),os=el.querySelector('summary');if(ns&&os){os.innerHTML=ns.innerHTML;hydrate(os)}
-  const nn=tmp.querySelector('.acf .note'),on=el.querySelector('.acf .note');if(nn){if(on)on.replaceWith(nn);else{const r=el.querySelector('.acf .row');if(r)r.before(nn)}}}
+  const nn=tmp.querySelector('.acf .note'),on=el.querySelector('.acf .note');if(nn){if(on)on.replaceWith(nn);else{const r=el.querySelector('.acf .acgo2');if(r)r.before(nn)}}}
 function acEntry(L){if(!CONF.acomp||!L.length)return '';const q=acCount(acRows()),pend=q.n-q.co;
   return `<button class="btn acgo" data-a="acomp">${ICK}<span>Acompanhamento das anomalias</span>${pend?`<span class="ct">${pend}</span>`:''}${q.at?`<span class="bd" style="background:#c81e1e;color:#fff">${pl(q.at,'atrasada','atrasadas')}</span>`:''}</button>`}
 function vAcomp(){
   if(!CFG){S.view='list';return vList()}
-  $('#ttl').textContent='Acompanhamento';$('#back').hidden=false;
+  $('#ttl').textContent='Acompanhamento';$('#back').hidden=false;S.acDraft=S.acDraft||{};
   const R=acRows(),I=acInsps(),F=S.acF||(S.acF={p:'',s:'',o:'prazo'});if(F.p&&!docs.has(F.p))F.p='';
   const T=acCount(R),sel=R.filter(r=>(!F.p||r.i.id===F.p)&&(!F.s||(F.s==='atrasada'?r.o.sit==='atrasada':r.o.st===F.s)));
   const by={prazo:(x,y)=>(x.o.st==='concluida')-(y.o.st==='concluida')||String(x.o.prazo||'9999').localeCompare(String(y.o.prazo||'9999'))||x.n-y.n,
@@ -704,7 +736,7 @@ function vAcomp(){
   sel.sort(by);
   const box=(l,n,f)=>`<button class="rb acb" data-acfil="${f}" aria-pressed="${!!f&&F.s===f}"><span class="mut">${l}</span><span class="n">${n}</span></button>`;
   $('#main').innerHTML=`<h2>Acompanhamento das anomalias</h2>
-  <p class="mut">Todas as anomalias dos prédios inspecionados. Toque numa anomalia para atualizar o status, o prazo e a conclusão: a equipe vê na hora.</p>
+  <p class="mut">Todas as anomalias dos prédios inspecionados. Toque numa anomalia para ver as fotos e atualizar o status, o prazo e o andamento: a equipe vê na hora.</p>
   <div class="row"><button class="btn pri" data-a="compxl" ${R.length&&dl?'':'disabled'}>${IC.xl} Exportar compilado (.xlsx)</button></div><div id="cres">${CRES}</div>
   ${dlKnown&&!dl?'<p class="note">O download não está disponível nesta visualização. Abra o app pelo link, no navegador.</p>':''}
   <div class="sum acs">${box('Anomalias',T.n,'')}${box('Abertas',T.ab,'aberta')}${box('Em andamento',T.an,'andamento')}${box('Concluídas',T.co,'concluida')}${box('Atrasadas',T.at,'atrasada')}</div>
@@ -720,56 +752,63 @@ function vAcomp(){
   ${F.p||F.s?'<div class="row"><button class="btn sm" data-acfil="limpar">Limpar filtros</button></div>':''}
   ${sel.length?sel.map(acCard).join(''):`<div class="empty"><p><b>${R.length?'Nenhuma anomalia com esse filtro.':'Nenhuma anomalia registrada ainda.'}</b></p></div>`}`;
   hydrate($('#main'))}
-function acCard({a,i,n,o}){const f=a.fotos[0],id=esc(a.id);
+function acCard({a,i,n,o}){const f=a.fotos[0],id=esc(a.id),nf=a.fotos.length,dr=(S.acDraft&&S.acDraft[a.id])||{d:today(),t:''};
   return `<details class="acd" data-acid="${id}"${S.acOpen===a.id?' open':''}><summary class="an"><span class="th" ${bg(f)}>${f?'':'sem foto'}</span>
    <span><b>${esc(predio(i))} · ${n}. ${esc(a.manif||'Manifestação não informada')}</b><small>${esc([a.elem,a.mat].filter(Boolean).join(' · ')||'Elemento não informado')}</small>${a.loc?`<small class="loc">${IC.pin}${esc(cut(a.loc,70))}</small>`:''}
-   <span class="bds"><span class="bd ast-${o.st}">${esc(astL(o.st))}</span>${o.sit==='concluida'?'':acBadge(o)}${o.prazo&&o.st!=='concluida'?`<span class="bd pe">Prazo ${fdate(o.prazo)}</span>`:''}${o.concl?`<span class="bd pe">Em ${fdate(o.concl)}</span>`:''}${o.s.nivel?badge(CFG.calc.risk,o.s.nivel,o.s.pont):''}${o.s.prio?badge(CFG.calc.gutp,o.s.prio,'GUT '+o.s.gut):''}</span></span></summary>
-   <div class="acf"><div class="seg2" role="group" aria-label="Status">${AST.map(([k,l])=>`<button data-acst="${k}" data-acid="${id}" aria-pressed="${o.st===k}">${l}</button>`).join('')}</div>
+   <span class="bds"><span class="bd ast-${o.st}">${esc(astL(o.st))}</span>${o.sit==='concluida'?'':acBadge(o)}${o.prazo&&o.st!=='concluida'?`<span class="bd pe">Prazo ${fdate(o.prazo)}</span>`:''}${o.concl?`<span class="bd pe">Em ${fdate(o.concl)}</span>`:''}${o.s.nivel?badge(CFG.calc.risk,o.s.nivel,o.s.pont):''}${o.s.prio?badge(CFG.calc.gutp,o.s.prio,'GUT '+o.s.gut):''}${nf>1?`<span class="bd pe">${nf} fotos</span>`:''}${o.ult?`<span class="bd pe">Atualizado ${fdate(o.ult)}</span>`:''}</span></span></summary>
+   <div class="acf">${nf?`<div class="acph" role="list" aria-label="Fotos do item">${a.fotos.map((p,k)=>`<button class="acfo" role="listitem" data-acfoto="${id}" data-fk="${k}" ${p.t?`style="background-image:url('${p.t}')" `:''}data-fid="${esc(p.id)}" aria-label="Abrir foto ${k+1} de ${nf}"><span>${k+1}/${nf}${p.leg?' · '+esc(cut(p.leg,50)):''}</span></button>`).join('')}</div>`:'<p class="mut">Item sem fotos.</p>'}
+    <div class="seg2" role="group" aria-label="Status">${AST.map(([k,l])=>`<button data-acst="${k}" data-acid="${id}" aria-pressed="${o.st===k}">${l}</button>`).join('')}</div>
     <div class="grid"><label class="f"><span>Prazo</span><input type="date" data-acf="prazo" data-acid="${id}" value="${esc(o.prazo)}"><small>${o.pm?`Pelo modelo: ${fdate(o.pm)}. Apague para voltar a ele.`:'Sem prazo pelo modelo: falta o risco, a GUT ou a data da inspeção.'}</small></label>
-     <label class="f"><span>Concluída em</span><input type="date" data-acf="concl" data-acid="${id}" value="${esc(o.concl)}"${o.st==='concluida'?'':' disabled'}></label>
-     <label class="f w"><span>Observação do acompanhamento</span><textarea data-acf="obs" data-acid="${id}" placeholder="O que foi feito, pendências, número da OS…">${esc(o.obs)}</textarea></label></div>
+     <label class="f"><span>Concluída em</span><input type="date" data-acf="concl" data-acid="${id}" value="${esc(o.concl)}"${o.st==='concluida'?'':' disabled'}></label></div>
+    <div class="ach"><b>Atualizações</b>${o.hist.length?`<ol class="hl">${o.hist.map(u=>`<li><span class="hd">${isDate(u.d)?fdate(u.d):'sem data'}</span><span class="ht">${esc(u.t)}${u.por?`<small>${esc(u.por)}</small>`:''}</span>${canDelH(u)?`<button class="hx" data-achdel="${id}" data-hid="${esc(u.id)}" aria-label="Apagar esta atualização">${S.hArm===u.id?'Apagar?':'✕'}</button>`:''}</li>`).join('')}</ol>`:'<p class="mut">Nenhuma atualização ainda.</p>'}
+     <div class="grid hnew"><label class="f"><span>Data</span><input type="date" data-achd="${id}" value="${esc(dr.d)}"></label><label class="f w"><span>O que aconteceu</span><textarea data-acht="${id}" placeholder="O que foi feito, pendências, nº da OS…">${esc(dr.t)}</textarea></label></div>
+     <div class="row"><button class="btn sm" data-achadd="${id}">+ Adicionar atualização</button></div></div>
     ${a.acao||a.resp?`<p class="mut">${a.acao?`<b>${esc(CFG.lab.acao||'Ação recomendada')}:</b> ${esc(a.acao)}`:''}${a.acao&&a.resp?'<br>':''}${a.resp?`<b>${esc(CFG.lab.resp||'Responsável')}:</b> ${esc(a.resp)}`:''}</p>`:''}
     ${o.em?`<p class="note">Atualizado por ${esc(o.por||'—')} em ${esc(new Date(o.em).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}</p>`:''}
-    <div class="row"><button class="btn sm" data-acgo="${id}">Abrir o item na inspeção</button></div></div></details>`}
+    <div class="row acgo2"><button class="btn sm" data-acgo="${id}">Abrir o item na inspeção</button></div></div></details>`}
+// fotos em tela cheia: desliza para os lados, setas no computador, Esc fecha
+function acLB(id,k){const a=docs.get(id);if(!a||!a.fotos.length)return;acLBclose();const i=docs.get(a.insp),n=a.fotos.length,num=i?anoms(i.id).findIndex(x=>x.id===a.id)+1:0;
+  const el=document.createElement('div');el.id='lb';el.className='lb';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-label','Fotos da anomalia');
+  el.innerHTML=`<div class="lbt"><span>${i?esc(predio(i))+' · ':''}${num?num+'. ':''}${esc(a.manif||'Item')}</span><button class="lbx" data-lb="x" aria-label="Fechar">✕</button></div>
+   <div class="lbs">${a.fotos.map((f,j)=>`<figure class="lbf"><div class="lbi" ${f.t?`style="background-image:url('${f.t}')" `:''}data-fid="${esc(f.id)}" role="img" aria-label="Foto ${j+1}"></div><figcaption>Foto ${j+1} de ${n}${f.leg?' · '+esc(f.leg):''}${a.loc?`<small>${esc(a.loc)}</small>`:''}</figcaption></figure>`).join('')}</div>
+   ${n>1?'<button class="lbn lbp" data-lb="p" aria-label="Foto anterior">‹</button><button class="lbn lbq" data-lb="n" aria-label="Próxima foto">›</button>':''}`;
+  document.body.appendChild(el);document.body.style.overflow='hidden';hydrate(el);const s=el.querySelector('.lbs');s.scrollLeft=k*s.clientWidth;requestAnimationFrame(()=>{s.scrollLeft=k*s.clientWidth});el.querySelector('.lbx').focus()}
+function acLBclose(){const el=document.getElementById('lb');if(!el)return;el.remove();document.body.style.overflow=S.ed?'hidden':''}
+function acLBgo(d){const s=document.querySelector('#lb .lbs');if(s)s.scrollBy({left:d*s.clientWidth,behavior:'smooth'})}
 
-/* ---------- Excel compilado: abas Compilação, Acompanhamento e Critérios (planilha nova, com fórmulas) ---------- */
+/* ---------- Excel compilado no padrão do relatório de inspeção: Compilação, Acompanhamento, Registro fotográfico e Critérios ---------- */
 function xlsxEsc(s){return String(s??'').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f￾￿]/g,'').slice(0,32000).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 const xCol=n=>{let s='';n++;while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=(n-m-1)/26}return s};
 const xSer=s=>isDate(s)?(Date.UTC(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10))-Date.UTC(1899,11,30))/864e5:'';
 const xSerT=ms=>{if(!ms)return '';const d=new Date(ms);return (Date.UTC(d.getFullYear(),d.getMonth(),d.getDate(),d.getHours(),d.getMinutes())-Date.UTC(1899,11,30))/864e5};
-// estilos (índices de cellXfs): 0 normal, 1 título, 2 subtítulo, 3 cabeçalho, 4 texto, 5 data, 6 número, 7 %, 8 total texto, 9 total número,
-// 10 total %, 11 nota, 12 texto a preencher, 13 data a preencher, 14 texto centralizado, 15 status a preencher, 16 total data, 17 data e hora, 18 cabeçalho a preencher
-const XSTY=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="dd/mm/yyyy hh:mm"/></numFmts>
-<fonts count="7"><font><sz val="10"/><name val="Arial"/><family val="2"/></font><font><b/><sz val="14"/><color rgb="FF1F3A5F"/><name val="Arial"/><family val="2"/></font><font><i/><sz val="10"/><color rgb="FF595959"/><name val="Arial"/><family val="2"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/><family val="2"/></font><font><b/><sz val="10"/><name val="Arial"/><family val="2"/></font><font><i/><sz val="9"/><color rgb="FF595959"/><name val="Arial"/><family val="2"/></font><font><b/><sz val="10"/><color rgb="FF1A1A1A"/><name val="Arial"/><family val="2"/></font></fonts>
-<fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F3A5F"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE7ECF2"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFD966"/><bgColor indexed="64"/></patternFill></fill></fills>
-<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right><top style="thin"><color rgb="FFBFBFBF"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom><diagonal/></border><border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right><top style="medium"><color rgb="FF1F3A5F"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom><diagonal/></border></borders>
-<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="19"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
-<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
-<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>
-<xf numFmtId="0" fontId="3" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
-<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
-<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
-<xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
-<xf numFmtId="9" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
-<xf numFmtId="0" fontId="4" fillId="3" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
-<xf numFmtId="1" fontId="4" fillId="3" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
-<xf numFmtId="9" fontId="4" fillId="3" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
-<xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="0"/></xf>
-<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
-<xf numFmtId="164" fontId="0" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
-<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf>
-<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
-<xf numFmtId="164" fontId="4" fillId="3" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
-<xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
-<xf numFmtId="0" fontId="6" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs>
-<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
-<dxfs count="__N__">__DXF__</dxfs></styleSheet>`;
-// planilha a partir de linhas: cada célula é {v, s, f} (f = fórmula com o valor já calculado em v)
-function xSheet(rows,o){const out=[];
+// estilos com as cores e fontes do modelo (azul-marinho 1F3864, verde 1F6F43, cinza-azulado 44546A, rótulos F6F8FB, calculados F3F3F3, a preencher FFF2CC)
+const XS=(()=>{const fonts=['<font><sz val="10"/><name val="Arial"/><family val="2"/></font>'],fills=['<fill><patternFill patternType="none"/></fill>','<fill><patternFill patternType="gray125"/></fill>'],xfs=['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'],idx={n:0},fk={},lk={};
+  const font=(sz,b,col,u)=>{const k=[sz,b,col,u].join();if(!(k in fk)){fk[k]=fonts.length;fonts.push(`<font>${b?'<b/>':''}${u?'<u/>':''}<sz val="${sz}"/>${col?`<color rgb="FF${col}"/>`:''}<name val="Arial"/><family val="2"/></font>`)}return fk[k]};
+  const fill=c=>{if(!c)return 0;if(!(c in lk)){lk[c]=fills.length;fills.push(`<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/><bgColor indexed="64"/></patternFill></fill>`)}return lk[c]};
+  const xf=(name,{nf=0,sz=9,b=0,col='',u=0,bg='',bd=1,h='',v='top',w=0})=>{idx[name]=xfs.length;xfs.push(`<xf numFmtId="${nf}" fontId="${font(sz,b,col,u)}" fillId="${fill(bg)}" borderId="${bd}" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment${h?` horizontal="${h}"`:''} vertical="${v}"${w?' wrapText="1"':''}/></xf>`)};
+  const NV='1F3864',GR='1F6F43',SL='44546A',LB='F6F8FB',CA='F3F3F3',IN='FFF2CC',TT='D9E1F2';
+  xf('titG',{sz:14,b:1,col:'FFFFFF',bg:GR,bd:0,h:'center',v:'center'});xf('titN',{sz:13,b:1,col:'FFFFFF',bg:NV,bd:0,h:'center',v:'center'});
+  xf('sec',{sz:11,b:1,bd:0,v:'bottom'});xf('th',{b:1,col:'FFFFFF',bg:NV,h:'center',v:'center',w:1});xf('grp',{b:1,col:'FFFFFF',bg:SL,h:'center',v:'center',w:1});xf('grpL',{sz:10,b:1,col:'FFFFFF',bg:SL,h:'left',v:'center',w:1});
+  xf('lab',{sz:10,b:1,bg:LB,v:'center'});xf('val',{sz:10,v:'center',w:1});xf('valn',{nf:1,sz:10,b:1,h:'center',v:'center'});xf('valt',{nf:165,sz:10,h:'left',v:'center'});
+  xf('td',{w:1});xf('tdc',{h:'center',w:1});xf('tdn',{nf:1,h:'center'});xf('tdd',{nf:164,h:'center'});
+  xf('calc',{bg:CA,h:'center',w:1});xf('calcn',{nf:1,bg:CA,h:'center'});xf('calcp',{nf:9,bg:CA,h:'center'});xf('calcd',{nf:164,bg:CA,h:'center'});
+  xf('inp',{bg:IN,w:1});xf('inpc',{bg:IN,h:'center'});xf('inpd',{nf:164,bg:IN,h:'center'});
+  xf('tot',{b:1,bg:TT,v:'center'});xf('totn',{nf:1,b:1,bg:TT,h:'center',v:'center'});xf('totp',{nf:9,b:1,bg:TT,h:'center',v:'center'});xf('totd',{nf:164,b:1,bg:TT,h:'center',v:'center'});xf('totc',{b:1,bg:TT,h:'center',v:'center'});
+  LV.forEach((c,k)=>xf('lv'+k,{b:1,col:LT[k].length===4?'FFFFFF':LT[k].slice(1).toUpperCase(),bg:c.slice(1).toUpperCase(),v:'center'}));
+  xf('cnt',{nf:1,b:1,h:'center',v:'center'});xf('pct',{nf:9,b:1,h:'center',v:'center'});
+  xf('pinfo',{bg:LB,v:'center',w:1});xf('ph',{v:'center'});xf('cap',{sz:8,h:'center',v:'top',w:1});xf('link',{col:'0563C1',u:1,h:'center',v:'top'});
+  // dxfs: 0 atrasada, 1 vence, 2 concluída, 3 no prazo, 4..7 cores dos níveis (as mesmas do app), 8 em andamento
+  const dx=(b,f)=>`<dxf><font><b/><color rgb="FF${f}"/></font><fill><patternFill patternType="solid"><fgColor rgb="FF${b}"/><bgColor rgb="FF${b}"/></patternFill></fill></dxf>`;
+  const dxf=[dx('C81E1E','FFFFFF'),dx('FFC000','1A1A1A'),dx('2E7D32','FFFFFF'),dx('92D050','1A1A1A'),...LV.map((c,k)=>dx(c.slice(1).toUpperCase(),LT[k].length===4?'FFFFFF':LT[k].slice(1).toUpperCase())),dx('1F6FEB','FFFFFF')];
+  const xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="dd/mm/yyyy hh:mm"/></numFmts><fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles><dxfs count="${dxf.length}">${dxf.join('')}</dxfs></styleSheet>`;
+  return{idx,xml}})();
+// planilha a partir de linhas: cada célula é {v, s (nome do estilo), f (fórmula, com o valor já calculado em v)}
+function xSheet(rows,o){const out=[],S_=XS.idx;
   rows.forEach((row,ri)=>{if(!row)return;const r=ri+1,cs=[];
-    row.forEach((c,ci)=>{if(c==null)return;const ref=xCol(ci)+r,s=c.s?` s="${c.s}"`:'';
+    row.forEach((c,ci)=>{if(c==null)return;const ref=xCol(ci)+r,s=c.s?` s="${S_[c.s]}"`:'';
       if(c.f){const num=typeof c.v==='number'&&isFinite(c.v);cs.push(`<c r="${ref}"${s}${num?'':' t="str"'}><f>${xlsxEsc(c.f)}</f><v>${num?c.v:xlsxEsc(c.v??'')}</v></c>`)}
       else if(typeof c.v==='number'&&isFinite(c.v))cs.push(`<c r="${ref}"${s}><v>${c.v}</v></c>`);
       else if(c.v!==''&&c.v!=null)cs.push(`<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${xlsxEsc(c.v)}</t></is></c>`);
@@ -778,78 +817,109 @@ function xSheet(rows,o){const out=[];
   const pane=o.fx||o.fy?`<pane${o.fx?` xSplit="${o.fx}"`:''}${o.fy?` ySplit="${o.fy}"`:''} topLeftCell="${xCol(o.fx||0)}${(o.fy||0)+1}" activePane="${o.fx&&o.fy?'bottomRight':o.fy?'bottomLeft':'topRight'}" state="frozen"/>`:'';
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>
-<sheetViews><sheetView workbookViewId="0"${o.sel?' tabSelected="1"':''} zoomScale="100">${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="13.2"/>
+<sheetViews><sheetView workbookViewId="0" showGridLines="0"${o.sel?' tabSelected="1"':''}>${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="13.2"/>
 <cols>${o.w.map((w,k)=>`<col min="${k+1}" max="${k+1}" width="${w}" customWidth="1"/>`).join('')}</cols>
 <sheetData>${out.join('')}</sheetData>${o.af?`<autoFilter ref="${o.af}"/>`:''}${o.merge&&o.merge.length?`<mergeCells count="${o.merge.length}">${o.merge.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells>`:''}
 ${(o.cf||[]).map((c,k)=>`<conditionalFormatting sqref="${c.ref}">${c.rules.map(([dx,f],j)=>`<cfRule type="expression" dxfId="${dx}" priority="${k*10+j+1}"><formula>${xlsxEsc(f)}</formula></cfRule>`).join('')}</conditionalFormatting>`).join('')}
 ${o.dv?`<dataValidations count="1"><dataValidation type="list" allowBlank="1" showErrorMessage="1" errorTitle="Status" error="Escolha Aberta, Em andamento ou Concluída." sqref="${o.dv}"><formula1>"Aberta,Em andamento,Concluída"</formula1></dataValidation></dataValidations>`:''}
-<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`}
-async function buildComp(){
-  const c=CFG.calc,R=acRows(),I=acInsps(),hl=CFG.hdrLab||{},lb=CFG.lab||{},td=today(),Q=s=>`'${s}'!`;
+${o.links&&o.links.length?`<hyperlinks>${o.links.map(l=>`<hyperlink ref="${l.ref}" location="${xlsxEsc(l.loc)}" display="${xlsxEsc(l.disp)}"/>`).join('')}</hyperlinks>`:''}
+<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="${o.retrato?'portrait':'landscape'}" fitToWidth="1" fitToHeight="0"/>${o.drawing?'<drawing r:id="rId1"/>':''}</worksheet>`}
+// foto reduzida para a planilha (até 1000 px, JPEG), para o arquivo não ficar pesado
+async function xFoto(f){const p=await getPhoto(f.id);if(!p)return null;let im;try{im=await loadImg(p.data)}catch(e){return null}
+  const w0=im.naturalWidth||p.w||4,h0=im.naturalHeight||p.h||3,s=Math.min(1,1000/Math.max(w0,h0)),w=Math.max(1,Math.round(w0*s)),h=Math.max(1,Math.round(h0*s));
+  let data=p.data;if(s<1||!/^data:image\/jpe?g/i.test(p.data)){const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,w,h);g.drawImage(im,0,0,w,h);data=c.toDataURL('image/jpeg',0.8)}
+  return{u8:b64u8(data),w,h}}
+async function buildComp(prog){
+  const c=CFG.calc,R=acRows(),I=acInsps(),hl=CFG.hdrLab||{},lb=CFG.lab||{},td=today(),Q=s=>`'${s}'!`,ACp=Q('Acompanhamento'),CRp=Q('Critérios'),RFn='Registro fotográfico';
+  const sitTxt=o=>SIT[o.sit][0],pad=(a,n,s)=>{while(a.length<n)a.push({v:'',s});return a};
   // nome do prédio igual nas abas (é a chave das fórmulas): repetidos ganham a data; sem curingas do Excel (* ? ~) nem sinais no começo
   const key=t=>String(t).replace(/[*?~]/g,'-').replace(/^[<>=]+/,'').trim()||'Ativo sem TAG',lab=new Map(),cnt=new Map(),used=new Set();
   for(const i of I){const k=key(predio(i)).toLowerCase();cnt.set(k,(cnt.get(k)||0)+1)}
   for(const i of I){let t=key(predio(i));if(cnt.get(t.toLowerCase())>1&&i.d.data)t+=' · '+fdate(i.d.data);let u=t,n=2;while(used.has(u.toLowerCase()))u=`${t} (${n++})`;used.add(u.toLowerCase());lab.set(i.id,u)}
-  // aba Critérios (níveis em ordem crescente, como pede o PROCV aproximado / PROC)
-  const rk=[...c.risk].reverse(),gk=[...c.gutp].reverse(),r1=5,rN=r1+rk.length-1,gN=r1+gk.length-1;
-  const crit=[[{v:'Critérios do modelo usados nas fórmulas',s:1}],[{v:`Copiados de “${CFG.name}” na exportação. As abas Compilação e Acompanhamento usam estas tabelas para o nível de risco e a prioridade GUT.`,s:2}],null,
-    [{v:'Pontuação a partir de',s:3},{v:'Nível de risco',s:3},{v:'Prazo de tratativa (dias)',s:3},null,{v:'GUT a partir de',s:3},{v:'Prioridade',s:3},{v:'Prazo de tratativa (dias)',s:3}]];
-  for(let k=0;k<Math.max(rk.length,gk.length);k++){const x=rk[k],y=gk[k],dR=x&&c.dRisk?c.dRisk[x[1]]:undefined,dG=y&&c.dGut?c.dGut[y[1]]:undefined;
-    crit.push([x?{v:x[0],s:6}:null,x?{v:x[1],s:14}:null,x?{v:isFinite(dR)?dR:'',s:6}:null,null,y?{v:y[0],s:6}:null,y?{v:y[1],s:14}:null,y?{v:isFinite(dG)?dG:'',s:6}:null])}
-  const LR=`${Q('Critérios')}$A$${r1}:$A$${rN},${Q('Critérios')}$B$${r1}:$B$${rN}`,LG=`${Q('Critérios')}$E$${r1}:$E$${gN},${Q('Critérios')}$F$${r1}:$F$${gN}`;
-  // aba Acompanhamento: uma linha por anomalia
+  // --- Critérios (níveis em ordem crescente, para o PROC) ---
+  const rk=[...c.risk].reverse(),gk=[...c.gutp].reverse(),r1=4,rN=r1+rk.length-1,gN=r1+gk.length-1;
+  const crit=[pad([{v:'CRITÉRIOS DO MODELO',s:'titN'}],7,'titN'),null,[{v:'Pontuação a partir de',s:'th'},{v:'Nível de risco',s:'th'},{v:'Prazo de tratativa (dias)',s:'th'},null,{v:'GUT a partir de',s:'th'},{v:'Prioridade',s:'th'},{v:'Prazo de tratativa (dias)',s:'th'}]];
+  for(let k=0;k<Math.max(rk.length,gk.length);k++){const x=rk[k],y=gk[k],dR=x&&c.dRisk?c.dRisk[x[1]]:undefined,dG=y&&c.dGut?c.dGut[y[1]]:undefined,lx=x&&c.risk.findIndex(z=>z[1]===x[1]),ly=y&&c.gutp.findIndex(z=>z[1]===y[1]);
+    crit.push([x?{v:x[0],s:'tdn'}:null,x?{v:x[1],s:'lv'+Math.min(lx,3)}:null,x?{v:isFinite(dR)?dR:'',s:'tdn'}:null,null,y?{v:y[0],s:'tdn'}:null,y?{v:y[1],s:'lv'+Math.min(ly,3)}:null,y?{v:isFinite(dG)?dG:'',s:'tdn'}:null])}
+  const LR=`${CRp}$A$${r1}:$A$${rN},${CRp}$B$${r1}:$B$${rN}`,LG=`${CRp}$E$${r1}:$E$${gN},${CRp}$F$${r1}:$F$${gN}`,lowR=`${CRp}$B$${r1}`,lowG=`${CRp}$F$${r1}`;
+  // --- Registro fotográfico: um bloco por anomalia, fotos lado a lado (até 4) com legenda ---
+  const RF=[pad([null,{v:'REGISTRO FOTOGRÁFICO DAS ANOMALIAS',s:'titN'}],5,'titN'),null],rfHt=[24,8],rfMerge=['B1:E1'],pics=[],linkRow=new Map(),PH=165,colPx=Math.floor((256*40+18)/256*7),rowPx=Math.round(PH/0.75);
+  const nFotos=R.reduce((n,x)=>n+Math.min(4,x.a.fotos.length),0);let done=0,miss=0;
+  for(const x of R){const {a,i,n,o}=x,r0=RF.length+1;linkRow.set(a.id,r0);
+    RF.push(pad([null,{v:`${lab.get(i.id)} · Item ${n} — ${a.manif||'Manifestação não informada'}`,s:'grpL'}],5,'grpL'));rfHt.push(20);rfMerge.push(`B${r0}:E${r0}`);
+    const info=[a.loc&&'Localização: '+a.loc,[a.elem,a.mat].filter(Boolean).join(' · '),'Status: '+astL(o.st),o.prazo&&'Prazo: '+fdate(o.prazo),'Situação: '+sitTxt(o)].filter(Boolean).join('   |   ');
+    RF.push(pad([null,{v:info,s:'pinfo'}],5,'pinfo'));rfHt.push(Math.max(18,Math.ceil(info.length/150)*13+5));rfMerge.push(`B${r0+1}:E${r0+1}`);
+    if(!a.fotos.length){RF.push(pad([null,{v:'Item sem fotos registradas.',s:'val'}],5,'val'));rfHt.push(18);rfMerge.push(`B${r0+2}:E${r0+2}`);RF.push(null);rfHt.push(10);continue}
+    const pr=[null],cr=[null];
+    for(let j=0;j<4;j++){const f=a.fotos[j];pr.push({v:'',s:'ph'});if(!f){cr.push({v:'',s:'cap'});continue}
+      if(prog)prog(`Juntando fotos ${++done}/${nFotos}…`);const p=await xFoto(f);
+      if(p){const s=Math.min((colPx-12)/p.w,(rowPx-12)/p.h),w=Math.round(p.w*s),h=Math.round(p.h*s);pics.push({c:1+j,r:r0+1,dx:Math.round((colPx-w)/2),dy:Math.round((rowPx-h)/2),w,h,u8:p.u8,name:`${lab.get(i.id)} item ${n} foto ${j+1}`,descr:f.leg||a.manif||''})}else miss++;
+      cr.push({v:`Foto ${j+1}${f.leg?' — '+f.leg:''}${p?'':' (não carregou)'}`,s:'cap'})}
+    RF.push(pr);rfHt.push(PH);RF.push(cr);rfHt.push(Math.max(16,...a.fotos.map(f=>Math.ceil(String(f.leg||'').length/46)*11+6)));RF.push(null);rfHt.push(10)}
+  if(!R.length){RF.push([null,{v:'Nenhuma anomalia registrada.',s:'val'}]);rfHt.push(18)}
+  // --- Acompanhamento: uma linha por anomalia (título, grupos e cabeçalho como no relatório) ---
   const AH=[hl.tag?`Prédio (${hl.tag})`:'Prédio (TAG)',hl.data||'Data da inspeção','Nº',hl.tipo||'Tipo de ativo',hl.unid||'Unidade','Localização',lb.elem||'Elemento',lb.mat||'Material',lb.manif||'Manifestação patológica',lb.causa||'Causa',lb.orig||'Origem','Descrição',
-    'Pontuação de risco','Nível de risco','G','U','T','GUT','Prioridade GUT',lb.acao||'Ação recomendada',lb.resp||'Responsável','Prazo','Status','Concluída em','Dias em aberto','Situação','Observações do acompanhamento','Atualizado por','Atualizado em'];
-  const AW=[20,12,6,18,16,28,22,12,26,22,18,40,11,13,5,5,5,7,13,36,16,12,15,12,9,21,32,18,16];
-  const ED=new Set([21,22,23,26]);   // Prazo, Status, Concluída em, Observações: colunas para preencher
-  const acc=[[{v:'Acompanhamento das anomalias',s:1}],[{v:'Preencha as colunas em amarelo (Prazo, Status, Concluída em e Observações). GUT, nível de risco, prioridade, dias em aberto e situação são fórmulas e se atualizam sozinhos.',s:2}],
-    [{v:`Gerado pelo app ${APPN} em ${new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}${ME?' por '+ME.nome:''}. Status vindos do app; o que mudar aqui não volta para o app.`,s:11}],
-    AH.map((h,k)=>({v:h,s:ED.has(k)?18:3}))],ht=[20,null,null,30];
-  const sitTxt=o=>SIT[o.sit][0];
-  R.forEach((x,k)=>{const r=5+k,{a,i,n,o}=x,s=o.s,d=i.d,gut=s.gut,dt=xSer(d.data);
+    'Pontuação','Nível de risco','G\nGravidade','U\nUrgência','T\nTendência','GUT','Prioridade',lb.acao||'Ação recomendada',lb.resp||'Responsável','Prazo','Status','Concluída em','Dias em aberto','Situação','Última atualização','Atualizações (data — o que aconteceu)','Fotos'];
+  const AW=[20,12,5,18,16,28,22,11,26,22,18,40,10,12,9,9,9,7,11,36,16,12,15,12,9,21,12,44,12],NA=AH.length,LAST=xCol(NA-1);
+  const GRP=[['IDENTIFICAÇÃO',0,4],['IDENTIFICAÇÃO E DIAGNÓSTICO PATOLÓGICO',5,11],['RISCO ESTRUTURAL',12,13],['PRIORIZAÇÃO GUT',14,18],['TRATATIVA E CONTROLE',19,20],['ACOMPANHAMENTO',21,NA-1]];
+  const g2=[];for(const [t,a0,b0] of GRP){g2[a0]={v:t,s:'grp'};for(let k=a0+1;k<=b0;k++)g2[k]={v:'',s:'grp'}}
+  const acc=[pad([{v:'ACOMPANHAMENTO DAS ANOMALIAS',s:'titN'}],NA,'titN'),g2,AH.map(h=>({v:h,s:'th'}))],ht=[24,16,40],accMerge=[`A1:${LAST}1`,...GRP.map(([,a0,b0])=>`${xCol(a0)}2:${xCol(b0)}2`)],links=[];
+  R.forEach((x,k)=>{const r=4+k,{a,i,n,o}=x,s=o.s,d=i.d,gut=s.gut,dt=xSer(d.data);
     const dias=!isDate(d.data)?'':o.st==='concluida'?(o.concl?ddays(d.data,o.concl):''):ddays(d.data,td);
-    acc.push([{v:lab.get(i.id),s:4},{v:dt,s:5},{v:n,s:6},{v:d.tipo||'',s:4},{v:d.unid||'',s:4},{v:a.loc,s:4},{v:a.elem,s:4},{v:a.mat,s:14},{v:a.manif,s:4},{v:a.causa,s:4},{v:a.orig,s:4},{v:a.descr,s:4},
-      {v:s.pont??'',s:6},{v:s.nivel||'',s:14,f:`IF(M${r}="","",IFERROR(LOOKUP(M${r},${LR}),${Q('Critérios')}$B$${r1}))`},
-      {v:a.g,s:6},{v:a.u,s:6},{v:a.t,s:6},{v:gut??'',s:6,f:`IF(COUNT(O${r}:Q${r})=3,O${r}*P${r}*Q${r},"")`},{v:s.prio||'',s:14,f:`IF(R${r}="","",IFERROR(LOOKUP(R${r},${LG}),${Q('Critérios')}$F$${r1}))`},
-      {v:a.acao,s:4},{v:a.resp,s:4},{v:xSer(o.prazo),s:13},{v:astL(o.st),s:15},{v:xSer(o.concl),s:13},
-      {v:dias,s:6,f:`IF(B${r}="","",IF(W${r}="Concluída",IF(X${r}="","",X${r}-B${r}),TODAY()-B${r}))`},
-      {v:sitTxt(o),s:14,f:`IF(W${r}="Concluída",IF(AND(X${r}<>"",V${r}<>"",X${r}>V${r}),"Concluída com atraso","Concluída"),IF(V${r}="","Sem prazo",IF(V${r}<TODAY(),"Atrasada",IF(V${r}-TODAY()<=30,"Vence em até 30 dias","No prazo"))))`},
-      {v:o.obs,s:12},{v:o.por,s:4},{v:xSerT(o.em),s:17}]);
-    const L=(t,w)=>Math.ceil(String(t||'').length/(w*1.15));ht.push(Math.min(110,Math.max(1,L(a.descr,40),L(a.acao,36),L(o.obs,32),L(a.loc,28),L(a.manif,26),L(a.causa,22))*12.75+2.25))});
-  const aN=Math.max(5,4+R.length),ed=`${aN+300}`;
-  const lvRules=(col,rows)=>rows.map((x,k)=>[4+Math.min(k,3),`$${col}5="${String(x[1]).replace(/"/g,'""')}"`]);
-  const accCf=[{ref:`Z5:Z${ed}`,rules:[[0,'$Z5="Atrasada"'],[1,'$Z5="Vence em até 30 dias"'],[2,'LEFT($Z5,9)="Concluída"'],[3,'$Z5="No prazo"']]},{ref:`W5:W${ed}`,rules:[[2,'$W5="Concluída"'],[8,'$W5="Em andamento"']]},
-    {ref:`N5:N${aN}`,rules:lvRules('N',c.risk)},{ref:`S5:S${aN}`,rules:lvRules('S',c.gutp)}];
-  // aba Compilação: uma linha por prédio, contando a aba Acompanhamento
+    const hist=o.hist.map(u=>`${isDate(u.d)?fdate(u.d):'sem data'} — ${u.t}${u.por?' ('+u.por+')':''}`).join('\n'),nf=a.fotos.length;
+    acc.push([{v:lab.get(i.id),s:'td'},{v:dt,s:'tdd'},{v:n,s:'tdn'},{v:d.tipo||'',s:'td'},{v:d.unid||'',s:'td'},{v:a.loc,s:'td'},{v:a.elem,s:'td'},{v:a.mat,s:'tdc'},{v:a.manif,s:'td'},{v:a.causa,s:'td'},{v:a.orig,s:'td'},{v:a.descr,s:'td'},
+      {v:s.pont??'',s:'tdn'},{v:s.nivel||'',s:'calc',f:`IF(M${r}="","",IFERROR(LOOKUP(M${r},${LR}),${lowR}))`},
+      {v:a.g,s:'tdn'},{v:a.u,s:'tdn'},{v:a.t,s:'tdn'},{v:gut??'',s:'calcn',f:`IF(COUNT(O${r}:Q${r})=3,O${r}*P${r}*Q${r},"")`},{v:s.prio||'',s:'calc',f:`IF(R${r}="","",IFERROR(LOOKUP(R${r},${LG}),${lowG}))`},
+      {v:a.acao,s:'td'},{v:a.resp,s:'td'},{v:xSer(o.prazo),s:'inpd'},{v:astL(o.st),s:'inpc'},{v:xSer(o.concl),s:'inpd'},
+      {v:dias,s:'calcn',f:`IF(B${r}="","",IF(W${r}="Concluída",IF(X${r}="","",X${r}-B${r}),TODAY()-B${r}))`},
+      {v:sitTxt(o),s:'calc',f:`IF(W${r}="Concluída",IF(AND(X${r}<>"",V${r}<>"",X${r}>V${r}),"Concluída com atraso","Concluída"),IF(V${r}="","Sem prazo",IF(V${r}<TODAY(),"Atrasada",IF(V${r}-TODAY()<=30,"Vence em até 30 dias","No prazo"))))`},
+      {v:xSer(o.ult),s:'tdd'},{v:hist,s:'inp'},{v:nf?`Ver ${pl(nf,'foto','fotos')}`:'—',s:nf?'link':'tdc'}]);
+    if(nf)links.push({ref:`${LAST}${r}`,loc:`'${RFn}'!B${linkRow.get(a.id)}`,disp:`Ver ${pl(nf,'foto','fotos')}`});
+    const L=(t,w)=>String(t||'').split('\n').reduce((m,l)=>m+Math.max(1,Math.ceil(l.length/(w*1.15))),0);ht.push(Math.min(160,Math.max(1,L(a.descr,40),L(a.acao,36),L(hist,44),L(a.loc,28),L(a.manif,26),L(a.causa,22))*12+3))});
+  const aN=Math.max(4,3+R.length),ed=`${aN+300}`;
+  const lvRules=(col,rows,r)=>rows.map((x,k)=>[4+Math.min(k,3),`$${col}${r}="${String(x[1]).replace(/"/g,'""')}"`]);
+  const accCf=[{ref:`Z4:Z${ed}`,rules:[[0,'$Z4="Atrasada"'],[1,'$Z4="Vence em até 30 dias"'],[2,'LEFT($Z4,9)="Concluída"'],[3,'$Z4="No prazo"']]},{ref:`W4:W${ed}`,rules:[[2,'$W4="Concluída"'],[8,'$W4="Em andamento"']]},
+    {ref:`N4:N${aN}`,rules:lvRules('N',c.risk,4)},{ref:`S4:S${aN}`,rules:lvRules('S',c.gutp,4)}];
+  // --- Compilação: no estilo do Resumo do relatório (faixa verde, quadros de indicadores) e uma linha por prédio ---
   const CH=[hl.tag?`Prédio (${hl.tag})`:'Prédio (TAG)',hl.tipo||'Tipo de ativo',hl.unid||'Unidade',hl.data||'Data da inspeção',hl.rt||'Responsável técnico',hl.os||'OS','Itens registrados','Anomalias','Abertas','Em andamento','Concluídas','Atrasadas','% concluído','Maior pontuação de risco','Nível de risco','Maior GUT','Prioridade GUT','Próximo prazo em aberto'];
-  const CW=[22,20,18,12,30,14,11,11,9,12,11,10,11,13,13,9,13,14],A=Q('Acompanhamento'),T=acCount(R);
-  const comp=[[{v:'Compilação das inspeções',s:1}],[{v:`${pl(I.length,'prédio','prédios')} · ${pl(R.length,'anomalia','anomalias')} · gerado em ${new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}${ME?' por '+ME.nome:''}`,s:2}],null,CH.map(h=>({v:h,s:3}))],cht=[20,null,null,40];
+  const CW=[2,22,20,18,12,30,14,11,11,11,12,11,10,11,13,13,9,13,14],T=acCount(R),comp=[],cht=[],cMerge=[];
+  const put=(r,col,cell)=>{while(comp.length<r)comp.push(null);const row=comp[r-1]||(comp[r-1]=[]);row[col]=cell};
+  put(2,1,{v:'COMPILAÇÃO DAS INSPEÇÕES ESTRUTURAIS — ACOMPANHAMENTO DAS ANOMALIAS',s:'titG'});for(let k=2;k<=18;k++)put(2,k,{v:'',s:'titG'});cMerge.push('B2:S2');
+  put(4,1,{v:'INFORMAÇÕES',s:'sec'});put(4,5,{v:'SITUAÇÃO DAS ANOMALIAS',s:'sec'});put(4,8,{v:'NÍVEL DE RISCO',s:'sec'});put(4,11,{v:'PRIORIDADE GUT',s:'sec'});
+  const B0=13,tr=B0+1+I.length;   // linha do cabeçalho por prédio e linha do total
+  const info=[['Prédios inspecionados',{v:I.length,s:'valn'}],['Anomalias',{v:T.n,s:'valn',f:`I${tr}`}],['Modelo',{v:CFG.name,s:'val'}],['Gerado em',{v:xSerT(Date.now()),s:'valt'}],['Gerado por',{v:ME?ME.nome:'—',s:'val'}]];
+  info.forEach(([l,cell],k)=>{const r=5+k;put(r,1,{v:l,s:'lab'});put(r,2,cell);put(r,3,{v:'',s:cell.s});cMerge.push(`C${r}:D${r}`)});
+  const sit=[['Abertas',T.ab,`COUNTIF(${ACp}$W:$W,"Aberta")`],['Em andamento',T.an,`COUNTIF(${ACp}$W:$W,"Em andamento")`],['Concluídas',T.co,`COUNTIF(${ACp}$W:$W,"Concluída")`],
+    ['Atrasadas',T.at,`COUNTIF(${ACp}$Z:$Z,"Atrasada")`],['Vencem em até 30 dias',R.filter(x=>x.o.sit==='vence').length,`COUNTIF(${ACp}$Z:$Z,"Vence em até 30 dias")`]];
+  put(5,5,{v:'Situação',s:'th'});put(5,6,{v:'Qtde',s:'th'});sit.forEach(([l,v,f],k)=>{put(6+k,5,{v:l,s:'val'});put(6+k,6,{v,s:'cnt',f})});
+  put(11,5,{v:'% concluído',s:'lab'});put(11,6,{v:T.n?T.co/T.n:'',s:'pct',f:'IF(SUM(G6:G8)=0,"",G8/SUM(G6:G8))'});
+  put(5,8,{v:'Nível',s:'th'});put(5,9,{v:'Qtde',s:'th'});c.risk.forEach((x,k)=>{put(6+k,8,{v:x[1],s:'lv'+Math.min(k,3)});put(6+k,9,{v:R.filter(r=>r.o.s.nivel===x[1]).length,s:'cnt',f:`COUNTIF(${ACp}$N:$N,I${6+k})`})});
+  put(5,11,{v:'Prioridade',s:'th'});put(5,12,{v:'Qtde',s:'th'});c.gutp.forEach((x,k)=>{put(6+k,11,{v:x[1],s:'lv'+Math.min(k,3)});put(6+k,12,{v:R.filter(r=>r.o.s.prio===x[1]).length,s:'cnt',f:`COUNTIF(${ACp}$S:$S,L${6+k})`})});
+  put(B0-1,1,{v:'POR PRÉDIO',s:'sec'});CH.forEach((h,k)=>put(B0,1+k,{v:h,s:'th'}));
   const mx=v=>v>0?v:'',num=[];
-  I.forEach((i,k)=>{const r=5+k,L=R.filter(x=>x.i===i),q=acCount(L),d=i.d,ka=`${A}$A:$A,$A${r}`;
+  I.forEach((i,k)=>{const r=B0+1+k,L=R.filter(x=>x.i===i),q=acCount(L),d=i.d,ka=`${ACp}$A:$A,$B${r}`;
     const pm=Math.max(0,...L.map(x=>x.o.s.pont||0)),gm=Math.max(0,...L.map(x=>x.o.s.gut||0)),nx=L.filter(x=>x.o.st!=='concluida'&&x.o.prazo).map(x=>x.o.prazo).sort()[0]||'';
-    num.push({q,pm,gm,nx,nI:anoms(i.id).length});cht.push(Math.min(60,Math.max(1,Math.ceil(String(d.rt||'').length/34),Math.ceil(String(lab.get(i.id)).length/25)))*12.75+2.25);
-    comp.push([{v:lab.get(i.id),s:4},{v:d.tipo||'',s:4},{v:d.unid||'',s:4},{v:xSer(d.data),s:5},{v:d.rt||'',s:4},{v:d.os||'',s:4},{v:anoms(i.id).length,s:6},
-      {v:q.n,s:6,f:`COUNTIF(${A}$A:$A,$A${r})`},{v:q.ab,s:6,f:`COUNTIFS(${ka},${A}$W:$W,"Aberta")`},{v:q.an,s:6,f:`COUNTIFS(${ka},${A}$W:$W,"Em andamento")`},{v:q.co,s:6,f:`COUNTIFS(${ka},${A}$W:$W,"Concluída")`},
-      {v:q.at,s:6,f:`COUNTIFS(${ka},${A}$Z:$Z,"Atrasada")`},{v:q.n?q.co/q.n:'',s:7,f:`IF(H${r}=0,"",K${r}/H${r})`},
-      {v:mx(pm),s:6,f:`IF(COUNTIFS(${ka},${A}$M:$M,">0")=0,"",_xlfn.MAXIFS(${A}$M:$M,${A}$A:$A,$A${r}))`},{v:pm?lvl(c.risk,pm):'',s:14,f:`IF(N${r}="","",IFERROR(LOOKUP(N${r},${LR}),${Q('Critérios')}$B$${r1}))`},
-      {v:mx(gm),s:6,f:`IF(COUNTIFS(${ka},${A}$R:$R,">0")=0,"",_xlfn.MAXIFS(${A}$R:$R,${A}$A:$A,$A${r}))`},{v:gm?lvl(c.gutp,gm):'',s:14,f:`IF(P${r}="","",IFERROR(LOOKUP(P${r},${LG}),${Q('Critérios')}$F$${r1}))`},
-      {v:xSer(nx),s:5,f:`IF(COUNTIFS(${ka},${A}$W:$W,"<>Concluída",${A}$V:$V,">0")=0,"",_xlfn.MINIFS(${A}$V:$V,${A}$A:$A,$A${r},${A}$W:$W,"<>Concluída"))`}])});
-  const cN=4+I.length,tr=cN+1,sm=(L,k)=>L.reduce((n,x)=>n+k(x),0),pmT=Math.max(0,...num.map(x=>x.pm)),gmT=Math.max(0,...num.map(x=>x.gm)),nxT=num.map(x=>x.nx).filter(Boolean).sort()[0]||'';
-  const S5=(col)=>I.length?`SUM(${col}5:${col}${cN})`:'0';
-  comp.push([{v:'Total',s:8},{v:'',s:8},{v:'',s:8},{v:'',s:8},{v:'',s:8},{v:'',s:8},{v:sm(num,x=>x.nI),s:9,f:S5('G')},{v:T.n,s:9,f:S5('H')},{v:T.ab,s:9,f:S5('I')},{v:T.an,s:9,f:S5('J')},{v:T.co,s:9,f:S5('K')},{v:T.at,s:9,f:S5('L')},
-    {v:T.n?T.co/T.n:'',s:10,f:`IF(H${tr}=0,"",K${tr}/H${tr})`},{v:mx(pmT),s:9,f:I.length?`IF(COUNT(N5:N${cN})=0,"",MAX(N5:N${cN}))`:'""'},{v:pmT?lvl(c.risk,pmT):'',s:9,f:`IF(N${tr}="","",IFERROR(LOOKUP(N${tr},${LR}),${Q('Critérios')}$B$${r1}))`},
-    {v:mx(gmT),s:9,f:I.length?`IF(COUNT(P5:P${cN})=0,"",MAX(P5:P${cN}))`:'""'},{v:gmT?lvl(c.gutp,gmT):'',s:9,f:`IF(P${tr}="","",IFERROR(LOOKUP(P${tr},${LG}),${Q('Critérios')}$F$${r1}))`},{v:xSer(nxT),s:16,f:I.length?`IF(COUNT(R5:R${cN})=0,"",MIN(R5:R${cN}))`:'""'}]);
-  [null,`Abertas, em andamento, concluídas, atrasadas e % concluído são fórmulas que contam a aba Acompanhamento: mudou o Status lá, este resumo muda junto.`,
-   `Pontuação de risco, G, U, T e prazos vêm do app, calculados com os critérios do modelo “${CFG.name}” (aba Critérios). Itens de bom estado e pontos cegos não contam como anomalias.`,
-   'Situação: Atrasada = prazo vencido sem conclusão · Vence em até 30 dias · No prazo · Concluída (com atraso, se depois do prazo).'].forEach(t=>comp.push(t?[{v:t,s:11}]:null));
-  const compCf=[{ref:`L5:L${cN}`,rules:[[0,`$L5>0`]]},{ref:`O5:O${tr}`,rules:lvRules('O',c.risk)},{ref:`Q5:Q${tr}`,rules:lvRules('Q',c.gutp)}];
-  // dxfs: 0 atrasada, 1 vence, 2 concluída, 3 no prazo, 4..7 cores dos níveis (as mesmas do app), 8 em andamento
-  const dx=(bgc,fg,b)=>`<dxf><font>${b?'<b/>':''}<color rgb="FF${fg.slice(1)}"/></font><fill><patternFill patternType="solid"><fgColor rgb="FF${bgc.slice(1)}"/><bgColor rgb="FF${bgc.slice(1)}"/></patternFill></fill></dxf>`;
-  const dxf=[dx('#C81E1E','#FFFFFF',1),dx('#FFC000','#1A1A1A',1),dx('#2E7D32','#FFFFFF',1),dx('#92D050','#1A1A1A',0),...LV.map((b,k)=>dx(b.toUpperCase(),LT[k].length===4?'#FFFFFF':LT[k].toUpperCase(),1)),dx('#1F6FEB','#FFFFFF',1)];
-  const enc=new TextEncoder(),now=new Date().toISOString().replace(/\.\d+Z$/,'Z');
+    num.push({pm,gm,nx,nI:anoms(i.id).length});cht[r-1]=Math.min(60,Math.max(1,Math.ceil(String(d.rt||'').length/34),Math.ceil(String(lab.get(i.id)).length/25)))*12+3;
+    [{v:lab.get(i.id),s:'td'},{v:d.tipo||'',s:'td'},{v:d.unid||'',s:'td'},{v:xSer(d.data),s:'tdd'},{v:d.rt||'',s:'td'},{v:d.os||'',s:'td'},{v:anoms(i.id).length,s:'tdn'},
+     {v:q.n,s:'calcn',f:`COUNTIF(${ACp}$A:$A,$B${r})`},{v:q.ab,s:'calcn',f:`COUNTIFS(${ka},${ACp}$W:$W,"Aberta")`},{v:q.an,s:'calcn',f:`COUNTIFS(${ka},${ACp}$W:$W,"Em andamento")`},{v:q.co,s:'calcn',f:`COUNTIFS(${ka},${ACp}$W:$W,"Concluída")`},
+     {v:q.at,s:'calcn',f:`COUNTIFS(${ka},${ACp}$Z:$Z,"Atrasada")`},{v:q.n?q.co/q.n:'',s:'calcp',f:`IF(I${r}=0,"",L${r}/I${r})`},
+     {v:mx(pm),s:'calcn',f:`IF(COUNTIFS(${ka},${ACp}$M:$M,">0")=0,"",_xlfn.MAXIFS(${ACp}$M:$M,${ACp}$A:$A,$B${r}))`},{v:pm?lvl(c.risk,pm):'',s:'calc',f:`IF(O${r}="","",IFERROR(LOOKUP(O${r},${LR}),${lowR}))`},
+     {v:mx(gm),s:'calcn',f:`IF(COUNTIFS(${ka},${ACp}$R:$R,">0")=0,"",_xlfn.MAXIFS(${ACp}$R:$R,${ACp}$A:$A,$B${r}))`},{v:gm?lvl(c.gutp,gm):'',s:'calc',f:`IF(Q${r}="","",IFERROR(LOOKUP(Q${r},${LG}),${lowG}))`},
+     {v:xSer(nx),s:'calcd',f:`IF(COUNTIFS(${ka},${ACp}$W:$W,"<>Concluída",${ACp}$V:$V,">0")=0,"",_xlfn.MINIFS(${ACp}$V:$V,${ACp}$A:$A,$B${r},${ACp}$W:$W,"<>Concluída"))`}].forEach((cell,j)=>put(r,1+j,cell))});
+  const fr=B0+1,lr=Math.max(fr,tr-1),sm=k=>num.reduce((n,x)=>n+k(x),0),pmT=Math.max(0,...num.map(x=>x.pm)),gmT=Math.max(0,...num.map(x=>x.gm)),nxT=num.map(x=>x.nx).filter(Boolean).sort()[0]||'';
+  const S5=col=>I.length?`SUM(${col}${fr}:${col}${lr})`:'0';
+  [{v:'Total',s:'tot'},{v:'',s:'tot'},{v:'',s:'tot'},{v:'',s:'tot'},{v:'',s:'tot'},{v:'',s:'tot'},{v:sm(x=>x.nI),s:'totn',f:S5('H')},{v:T.n,s:'totn',f:S5('I')},{v:T.ab,s:'totn',f:S5('J')},{v:T.an,s:'totn',f:S5('K')},{v:T.co,s:'totn',f:S5('L')},{v:T.at,s:'totn',f:S5('M')},
+   {v:T.n?T.co/T.n:'',s:'totp',f:`IF(I${tr}=0,"",L${tr}/I${tr})`},{v:mx(pmT),s:'totn',f:I.length?`IF(COUNT(O${fr}:O${lr})=0,"",MAX(O${fr}:O${lr}))`:'""'},{v:pmT?lvl(c.risk,pmT):'',s:'totc',f:`IF(O${tr}="","",IFERROR(LOOKUP(O${tr},${LR}),${lowR}))`},
+   {v:mx(gmT),s:'totn',f:I.length?`IF(COUNT(Q${fr}:Q${lr})=0,"",MAX(Q${fr}:Q${lr}))`:'""'},{v:gmT?lvl(c.gutp,gmT):'',s:'totc',f:`IF(Q${tr}="","",IFERROR(LOOKUP(Q${tr},${LG}),${lowG}))`},{v:xSer(nxT),s:'totd',f:I.length?`IF(COUNT(S${fr}:S${lr})=0,"",MIN(S${fr}:S${lr}))`:'""'}].forEach((cell,j)=>put(tr,1+j,cell));
+  cht[1]=26;cht[3]=18;cht[B0-2]=18;cht[B0-1]=40;
+  const compCf=[{ref:`M${fr}:M${tr}`,rules:[[0,`$M${fr}>0`]]},{ref:`P${fr}:P${tr}`,rules:lvRules('P',c.risk,fr)},{ref:`R${fr}:R${tr}`,rules:lvRules('R',c.gutp,fr)}];
+  // --- desenho das fotos ---
+  const rels=pics.map((p,k)=>`<Relationship Id="rId${k+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${k+1}.jpeg"/>`).join('');
+  const anc=pics.map((p,k)=>`<xdr:oneCellAnchor><xdr:from><xdr:col>${p.c}</xdr:col><xdr:colOff>${p.dx*9525}</xdr:colOff><xdr:row>${p.r}</xdr:row><xdr:rowOff>${p.dy*9525}</xdr:rowOff></xdr:from><xdr:ext cx="${p.w*9525}" cy="${p.h*9525}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${k+2}" name="${xlsxEsc(p.name)}" descr="${xlsxEsc(p.descr)}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId${k+1}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${p.w*9525}" cy="${p.h*9525}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`).join('');
+  const enc=new TextEncoder(),now=new Date().toISOString().replace(/\.\d+Z$/,'Z'),SH=['Compilação','Acompanhamento',RFn,'Critérios'];
   const files=[
     {name:'[Content_Types].xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${[1,2,3].map(k=>`<Override PartName="/xl/worksheets/sheet${k}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>`},
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${SH.map((s,k)=>`<Override PartName="/xl/worksheets/sheet${k+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}${pics.length?'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':''}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>`},
     {name:'_rels/.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>`},
     {name:'docProps/core.xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -857,20 +927,29 @@ async function buildComp(){
     {name:'docProps/app.xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>${xlsxEsc(APPN)}</Application></Properties>`},
     {name:'xl/workbook.xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0"/></bookViews><sheets><sheet name="Compilação" sheetId="1" r:id="rId1"/><sheet name="Acompanhamento" sheetId="2" r:id="rId2"/><sheet name="Critérios" sheetId="3" r:id="rId3"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="1" hidden="1">'Acompanhamento'!$A$4:$AC$${aN}</definedName><definedName name="_xlnm.Print_Titles" localSheetId="1">'Acompanhamento'!$4:$4</definedName><definedName name="_xlnm.Print_Titles" localSheetId="0">'Compilação'!$4:$4</definedName></definedNames><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`},
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0"/></bookViews><sheets>${SH.map((s,k)=>`<sheet name="${xlsxEsc(s)}" sheetId="${k+1}" r:id="rId${k+1}"/>`).join('')}</sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="1" hidden="1">'Acompanhamento'!$A$3:$${LAST}$${aN}</definedName><definedName name="_xlnm.Print_Titles" localSheetId="1">'Acompanhamento'!$2:$3</definedName></definedNames><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`},
     {name:'xl/_rels/workbook.xml.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${[1,2,3].map(k=>`<Relationship Id="rId${k}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${k}.xml"/>`).join('')}<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
-    {name:'xl/styles.xml',data:XSTY.replace('__N__',dxf.length).replace('__DXF__',dxf.join(''))},
-    {name:'xl/worksheets/sheet1.xml',data:xSheet(comp,{w:CW,ht:cht,fy:4,fx:1,sel:1,cf:compCf,merge:[]}),z:1},
-    {name:'xl/worksheets/sheet2.xml',data:xSheet(acc,{w:AW,ht,fy:4,fx:3,af:`A4:AC${aN}`,cf:accCf,dv:`W5:W${ed}`}),z:1},
-    {name:'xl/worksheets/sheet3.xml',data:xSheet(crit,{w:[20,22,22,4,16,22,22],ht:[20]}),z:1}];
-  return zipBlob(files.map(f=>({name:f.name,data:enc.encode(f.data),z:f.z||f.data.length>2000})))}
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${SH.map((s,k)=>`<Relationship Id="rId${k+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${k+1}.xml"/>`).join('')}<Relationship Id="rId${SH.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+    {name:'xl/styles.xml',data:XS.xml},
+    {name:'xl/worksheets/sheet1.xml',data:xSheet(comp,{w:CW,ht:cht,sel:1,cf:compCf,merge:cMerge}),z:1},
+    {name:'xl/worksheets/sheet2.xml',data:xSheet(acc,{w:AW,ht,fy:3,fx:3,af:`A3:${LAST}${aN}`,cf:accCf,dv:`W4:W${ed}`,merge:accMerge,links}),z:1},
+    {name:'xl/worksheets/sheet3.xml',data:xSheet(RF,{w:[2,40,40,40,40,2],ht:rfHt,merge:rfMerge,retrato:1,drawing:pics.length>0}),z:1},
+    {name:'xl/worksheets/sheet4.xml',data:xSheet(crit,{w:[20,22,22,4,16,22,22],ht:[24],merge:['A1:G1']}),z:1}];
+  if(pics.length){files.push({name:'xl/worksheets/_rels/sheet3.xml.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`},
+    {name:'xl/drawings/drawing1.xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${anc}</xdr:wsDr>`,z:1},
+    {name:'xl/drawings/_rels/drawing1.xml.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels}</Relationships>`})}
+  const out=files.map(f=>({name:f.name,data:enc.encode(f.data),z:f.z||f.data.length>2000}));
+  pics.forEach((p,k)=>out.push({name:`xl/media/image${k+1}.jpeg`,data:p.u8}));
+  return{blob:await zipBlob(out),miss}}
 async function exportComp(btn){if(!CFG||!dl)return;
-  await busy(btn,'Gerando planilha…',async()=>{let blob;try{blob=await buildComp()}catch(e){console.error(e);st('Erro ao montar a planilha');return}
-    const name=`Compilado e acompanhamento das anomalias - ${today()}.xlsx`;XF=new File([blob],name,{type:XMIME});let can=false;try{can=!!(navigator.share&&navigator.canShare&&navigator.canShare({files:[XF]}))}catch(e){}
-    const info=`${esc(name)} · ${Math.max(1,Math.round(XF.size/1024))} KB`;
+  await busy(btn,'Gerando planilha…',async()=>{let r;try{r=await buildComp(t=>{btn.textContent=t})}catch(e){console.error(e);st('Erro ao montar a planilha');return}
+    const name=`Compilado e acompanhamento das anomalias - ${today()}.xlsx`;XF=new File([r.blob],name,{type:XMIME});let can=false;try{can=!!(navigator.share&&navigator.canShare&&navigator.canShare({files:[XF]}))}catch(e){}
+    const info=`${esc(name)} · ${XF.size>=1048576?(XF.size/1048576).toFixed(1).replace('.',',')+' MB':Math.max(1,Math.round(XF.size/1024))+' KB'}${r.miss?` · ${r.miss} foto(s) não carregaram (sem internet?)`:''}`;
     if(can){CRES=`<div class="row"><button class="btn pri" data-a="xshare">Compartilhar planilha</button><button class="btn" data-a="xdown">Baixar</button></div><p class="note">${info}</p>`;const b=$('#cres');if(b)b.innerHTML=CRES;st('Planilha pronta');return}
-    try{await dl.save({filename:name,data:XF});st('Planilha salva')}catch(e){st(dlErr(e))}
+    try{await dl.save({filename:name,data:XF});st(r.miss?`Planilha salva — ${r.miss} foto(s) não carregaram`:'Planilha salva')}catch(e){st(dlErr(e))}
     CRES=`<div class="row"><button class="btn sm" data-a="xdown">Baixar de novo</button></div><p class="note">${info}</p>`;const b=$('#cres');if(b)b.innerHTML=CRES})}
 
 /* ---------- telas de acesso ---------- */
@@ -1234,7 +1313,7 @@ function render(){if(MODE!=='local'&&AU.st!=='in'){AU.st==='out'?vLogin():AU.st=
   if(S.view==='users'&&!isAdm())S.view='list';S.view==='list'?vList():S.view==='users'?vUsers():S.view==='acomp'&&CONF.acomp?vAcomp():vEdit();saveNav()}
 function onRemote(){if(S.ed||AU.st!=='in'||S.view==='users')return;if(S.view==='acomp'){acLater();return}if(S.view==='edit'&&S.tab==='dados'){const c=document.querySelector('[data-tab=itens] .ct');if(c)c.textContent=anoms(S.cur).length}if(S.view==='list')vList();else if(S.tab!=='dados')vEdit();else if(!docs.has(S.cur)){S.view='list';vList()}}
 document.addEventListener('click',async e=>{
-  const t=e.target.closest('[data-a],[data-open],[data-tab],[data-ea],[data-rmf],[data-rmg],[data-sort],[data-setcd],[data-setaf],[data-ens],[data-atab],[data-ua],[data-acst],[data-acgo],[data-acfil],[data-acp]');if(!t)return;
+  const t=e.target.closest('[data-a],[data-open],[data-tab],[data-ea],[data-rmf],[data-rmg],[data-sort],[data-setcd],[data-setaf],[data-ens],[data-atab],[data-ua],[data-acst],[data-acgo],[data-acfil],[data-acp],[data-acfoto],[data-lb],[data-achadd],[data-achdel]');if(!t)return;
   const a=t.dataset.a,i=docs.get(S.cur);if(S.outArm&&a!=='sair')S.outArm=false;
   if(t.dataset.atab){AU.tab=t.dataset.atab;AU.err='';AU.msg='';vLogin();return}
   if(t.dataset.ua){userAct(t);return}
@@ -1248,6 +1327,12 @@ document.addEventListener('click',async e=>{
   else if(t.dataset.acp&&S.acF){S.acF.p=S.acF.p===t.dataset.acp?'':t.dataset.acp;vAcomp();if(S.acF.p){const hs=[...document.querySelectorAll('#main h3')],h3=hs[hs.length-1];if(h3)h3.scrollIntoView({behavior:'smooth',block:'start'})}}
   else if(a==='acomp'&&CONF.acomp&&CFG){S.view='acomp';S.acOpen=null;render();scrollTo(0,0)}
   else if(a==='compxl')exportComp(t);
+  else if(t.dataset.acfoto){acLB(t.dataset.acfoto,+t.dataset.fk||0)}
+  else if(t.dataset.lb){if(t.dataset.lb==='x')acLBclose();else acLBgo(t.dataset.lb==='n'?1:-1)}
+  else if(t.dataset.achadd){const id=t.dataset.achadd,box=t.closest('.ach'),dEl=box&&box.querySelector('[data-achd]'),tEl=box&&box.querySelector('[data-acht]');
+    if(!tEl||!tEl.value.trim()){st('Escreva o que aconteceu');if(tEl)tEl.focus();return}
+    if(acAddHist(id,dEl&&dEl.value,tEl.value)){if(S.acDraft)delete S.acDraft[id];S.acOpen=id;vAcomp();st('Atualização registrada')}}
+  else if(t.dataset.achdel&&t.dataset.hid){const id=t.dataset.achdel,h=t.dataset.hid;if(S.hArm!==h){S.hArm=h;S.acOpen=id;vAcomp();return}S.hArm=null;acDelHist(id,h);S.acOpen=id;vAcomp();st('Atualização apagada')}
   else if(t.dataset.setcd!==undefined&&S.ed){S.ed.cd=+t.dataset.setcd;saveDraft();drawSheet()}
   else if(t.dataset.setaf!==undefined&&S.ed){S.ed.af=t.dataset.setaf;saveDraft();drawSheet()}
   else if(t.dataset.ens!==undefined&&S.ed){S.ed.ensaio=S.ed.ensaio===t.dataset.ens?'':t.dataset.ens;saveDraft();drawSheet()}
@@ -1295,6 +1380,8 @@ document.addEventListener('submit',e=>{const f=e.target;
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(CAM.on)camClose();else if(S.ed)closeA(false)}});
 document.addEventListener('toggle',e=>{const el=e.target;if(el&&el.id==='crit')S.critOpen=el.open;
   if(el&&el.classList&&el.classList.contains('acd')){const id=el.dataset.acid;if(el.open)S.acOpen=id;else if(S.acOpen===id)S.acOpen=null}},true);
+$('#main').addEventListener('input',e=>{const el=e.target;if(!el.dataset||!(el.dataset.acht||el.dataset.achd))return;const id=el.dataset.acht||el.dataset.achd;S.acDraft=S.acDraft||{};const dr=S.acDraft[id]||(S.acDraft[id]={d:today(),t:''});if(el.dataset.acht)dr.t=el.value;else dr.d=el.value});
+document.addEventListener('keydown',e=>{if(!document.getElementById('lb'))return;if(e.key==='Escape'){acLBclose();e.stopImmediatePropagation();e.preventDefault()}else if(e.key==='ArrowRight'){acLBgo(1);e.preventDefault()}else if(e.key==='ArrowLeft'){acLBgo(-1);e.preventDefault()}},true);
 document.addEventListener('pointerdown',()=>{S.ptr=true},true);document.addEventListener('pointerup',()=>{S.ptr=false},true);document.addEventListener('pointercancel',()=>{S.ptr=false},true);
 $('#main').addEventListener('input',e=>{const el=e.target,i=docs.get(S.cur);if(!i)return;
   if(el.dataset.k&&el.tagName!=='SELECT'){i.d[el.dataset.k]=el.value;if(el.dataset.k==='tag')$('#ttl').textContent=el.value||'Inspeção';persist(i)}
