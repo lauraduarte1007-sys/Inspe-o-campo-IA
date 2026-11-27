@@ -16,5 +16,6 @@ window.INSP_CONFIG = {
     prefixo: 'ia_',
     app: 'ia'
   },
+  acomp: true,   // tela de acompanhamento das anomalias e Excel compilado de todos os prédios
   ia: { url: 'https://inspecao-ia.laura-duarte1007.workers.dev' }   // endereço do servidor da IA (Cloudflare Worker)
 };

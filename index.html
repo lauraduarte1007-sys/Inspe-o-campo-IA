@@ -129,6 +129,24 @@ details.help summary{cursor:pointer;font-weight:700;min-height:32px;display:flex
 .camth{justify-self:end;width:56px;height:56px;border-radius:10px;border:2px solid #fff;background:#333 center/cover no-repeat}
 @media(max-width:600px){.grid,.gut{grid-template-columns:minmax(0,1fr)}.capa{grid-template-columns:minmax(0,1fr)}.res{grid-template-columns:minmax(0,1fr)}}
 @media(prefers-reduced-motion:no-preference){.sheet.on{animation:up .22s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.4}}}
+.acb{border:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.acb[aria-pressed=true]{box-shadow:0 0 0 3px var(--acc) inset}
+.acs{grid-template-columns:repeat(auto-fit,minmax(118px,1fr))}
+.card.acp{grid-template-columns:minmax(0,1fr)}
+.card.acp[aria-pressed=true]{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc) inset}
+.prog{display:block;height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin:6px 0 2px}
+.prog i{display:block;height:100%;background:#2e7d32;border-radius:4px}
+details.acd{margin:10px 0}
+details.acd>summary.an{margin:0;font-weight:400;list-style:none}
+details.acd>summary::-webkit-details-marker{display:none}
+details.acd[open]>summary.an{border-radius:12px 12px 0 0;border-bottom-color:transparent}
+.acf{border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;padding:4px 12px 12px;background:var(--bg)}
+.acf textarea{min-height:72px}
+.bd.ast-aberta{background:#e3e7ec;color:#1a1a1a}
+.bd.ast-andamento{background:#1f6feb;color:#fff}
+.bd.ast-concluida{background:#2e7d32;color:#fff}
+.btn.acgo{width:100%;margin:-6px 0 18px;flex-wrap:wrap;gap:8px}
+.acfl{margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -536,6 +554,8 @@ function norm(o){
     let mig=false;
     o.fotos=(Array.isArray(o.fotos)?o.fotos:[]).map(f=>{if(typeof f==='string'){if(!okImg(f))return null;mig=true;const id=nid();putPhoto(id,{data:f,w:0,h:0});return{id,w:0,h:0,t:'',leg:'',ts:0}}return normF(f)}).filter(Boolean);
     if(mig)setTimeout(()=>{if(docs.get(o.id)===o)persist(o)},0);
+    if(o.acomp!==undefined){const c=o.acomp;if(!c||typeof c!=='object'||Array.isArray(c))delete o.acomp;
+      else o.acomp={st:['aberta','andamento','concluida'].includes(c.st)?c.st:'aberta',prazo:isDate(c.prazo)?c.prazo:'',concl:isDate(c.concl)?c.concl:'',obs:typeof c.obs==='string'?c.obs.slice(0,1000):'',em:+c.em||0,por:typeof c.por==='string'?c.por.slice(0,80):''}}
     return o}
   return null}
 
@@ -554,7 +574,7 @@ function exemplo(){const L=CFG.L,P=(k,v)=>pick(L[k],v),MP=(m,v)=>pick((CFG.dep&&
    {elem:P('elem','Pisos industriais'),mat:'Concreto',manif:MP('Concreto','Bom estado de conservação'),causa:P('causa','Não aplica'),orig:P('orig','Não aplica'),loc:'Galeria sob o transportador',descr:'Piso sem anomalias visíveis.',resp:P('resp','IEM-MVL')}
   ].forEach((a,k)=>persist(newAnom(i.id,Object.assign({created:t0+k},a))));
   return i}
-function sumOf(i){const A=anoms(i.id),Sc=A.map(a=>score(a,i.d)),c=CFG.calc,pmax=Math.max(0,...Sc.map(s=>s.pont||0)),gmax=Math.max(0,...Sc.map(s=>s.gut||0)),td=today(),pz=Sc.map(s=>s.prazo).filter(Boolean).sort();
+function sumOf(i){const A=anoms(i.id),Sc=A.map(a=>score(a,i.d)),c=CFG.calc,pmax=Math.max(0,...Sc.map(s=>s.pont||0)),gmax=Math.max(0,...Sc.map(s=>s.gut||0)),td=today(),pz=(CONF.acomp?A.map(a=>{const o=acOf(a,i);return SPECIAL(a.manif)||o.st==='concluida'?'':o.prazo}):Sc.map(s=>s.prazo)).filter(Boolean).sort();
   return{A,Sc,pmax,gmax,nivel:pmax?lvl(c.risk,pmax):'',prio:gmax?lvl(c.gutp,gmax):'',byR:c.risk.map(r=>[r[1],Sc.filter(s=>s.nivel===r[1]).length]),byG:c.gutp.map(r=>[r[1],Sc.filter(s=>s.prio===r[1]).length]),venc:pz.filter(p=>p<td).length,next:pz.find(p=>p>=td)||''}}
 function pend(i){const d=i.d,A=anoms(i.id),p=[],H=CFG.hdrLab,Sc=A.map(a=>score(a,d));
   ['unid','rt','os','data','tipo','tag','crit'].forEach(k=>{if(!String(d[k]||'').trim())p.push(H[k])});
@@ -640,6 +660,219 @@ async function iaRun(){clearTimeout(iaT);if(!IA||!IA.url||AU.st!=='in'||!CFG||!B
   iaT=setTimeout(iaRun,60000)}
 addEventListener('online',()=>setTimeout(iaRun,1500));
 
+/* ---------- acompanhamento das anomalias de todos os prédios (ligado por CONF.acomp) ----------
+   Cada anomalia guarda a.acomp = {st, prazo, concl, obs, em, por}, sincronizado com a equipe como o resto do item.
+   Prazo vazio = prazo do modelo (risco/GUT + data da inspeção). Itens "bom estado" e "ponto cego" não entram. */
+const AST=[['aberta','Aberta'],['andamento','Em andamento'],['concluida','Concluída']];
+const astL=k=>(AST.find(x=>x[0]===k)||AST[0])[1];
+const ddays=(a,b)=>Math.round((Date.parse(b+'T12:00:00Z')-Date.parse(a+'T12:00:00Z'))/864e5);
+const SIT={atrasada:['Atrasada','#c81e1e','#fff'],vence:['Vence em até 30 dias','#ffc000','#1a1a1a'],noprazo:['No prazo','#92d050','#1a1a1a'],semprazo:['Sem prazo','',''],concluida:['Concluída','#2e7d32','#fff'],conclatraso:['Concluída com atraso','#2e7d32','#fff']};
+const ICK='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="m3 6 1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17"/></svg>';
+function acOf(a,i){const c=a.acomp||{},s=score(a,i&&i.d),st=AST.some(x=>x[0]===c.st)?c.st:'aberta',prazo=isDate(c.prazo)?c.prazo:(s.prazo||''),concl=st==='concluida'&&isDate(c.concl)?c.concl:'';
+  let sit,dias=null;
+  if(st==='concluida')sit=concl&&prazo&&concl>prazo?'conclatraso':'concluida';
+  else if(!prazo)sit='semprazo';
+  else{dias=ddays(today(),prazo);sit=dias<0?'atrasada':dias<=30?'vence':'noprazo'}
+  return{st,prazo,pm:s.prazo||'',concl,obs:typeof c.obs==='string'?c.obs:'',sit,dias,s,por:c.por||'',em:+c.em||0}}
+const acSitTxt=o=>o.sit==='conclatraso'?'Com atraso':o.sit==='atrasada'?`Atrasada há ${pl(-o.dias,'dia','dias')}`:o.sit==='vence'?(o.dias===0?'Vence hoje':`Vence em ${pl(o.dias,'dia','dias')}`):SIT[o.sit][0];
+const acBadge=o=>{const [,b,f]=SIT[o.sit];return `<span class="bd${b?'':' pe'}"${b?` style="background:${b};color:${f}"`:''}>${esc(acSitTxt(o))}</span>`};
+const predio=i=>String(i.d.tag||'').trim()||'Ativo sem TAG';
+const acInsps=()=>insps().slice().sort((x,y)=>predio(x).localeCompare(predio(y),'pt',{numeric:true})||String(x.d.data||'').localeCompare(String(y.d.data||''))||x.created-y.created);
+function acRows(){const R=[];for(const i of acInsps())anoms(i.id).forEach((a,k)=>{if(!SPECIAL(a.manif))R.push({a,i,n:k+1,o:acOf(a,i)})});return R}
+const acCount=L=>({n:L.length,ab:L.filter(r=>r.o.st==='aberta').length,an:L.filter(r=>r.o.st==='andamento').length,co:L.filter(r=>r.o.st==='concluida').length,at:L.filter(r=>r.o.sit==='atrasada').length});
+function acSet(id,ch){const a=docs.get(id);if(!a||a.kind!=='anom')return;const c=Object.assign({st:'aberta',prazo:'',concl:'',obs:''},a.acomp||{},ch);
+  if(ch.st==='concluida'&&!isDate(c.concl))c.concl=today();
+  if(ch.st&&ch.st!=='concluida')c.concl='';
+  c.em=Date.now();c.por=ME?ME.nome:'';a.acomp=c;persist(a)}
+let CRES='';
+// redesenha a tela quando chegam mudanças da equipe, mas espera a pessoa terminar de digitar ou de tocar
+function acLater(){clearTimeout(S.acT);S.acT=setTimeout(()=>{if(S.view!=='acomp'||S.ed)return;const ae=document.activeElement;if(S.ptr||(ae&&ae.matches&&ae.matches('#main input,#main textarea'))){acLater();return}vAcomp()},500)}
+// atualiza só o resumo de um cartão (prazo, conclusão, observação), sem tirar o foco do campo
+function acRefresh(id){const el=[...document.querySelectorAll('details.acd')].find(d=>d.dataset.acid===id),a=docs.get(id),i=a&&docs.get(a.insp);if(!el||!i)return;
+  const tmp=document.createElement('div');tmp.innerHTML=acCard({a,i,n:anoms(i.id).findIndex(x=>x.id===id)+1,o:acOf(a,i)});
+  const ns=tmp.querySelector('summary'),os=el.querySelector('summary');if(ns&&os){os.innerHTML=ns.innerHTML;hydrate(os)}
+  const nn=tmp.querySelector('.acf .note'),on=el.querySelector('.acf .note');if(nn){if(on)on.replaceWith(nn);else{const r=el.querySelector('.acf .row');if(r)r.before(nn)}}}
+function acEntry(L){if(!CONF.acomp||!L.length)return '';const q=acCount(acRows()),pend=q.n-q.co;
+  return `<button class="btn acgo" data-a="acomp">${ICK}<span>Acompanhamento das anomalias</span>${pend?`<span class="ct">${pend}</span>`:''}${q.at?`<span class="bd" style="background:#c81e1e;color:#fff">${pl(q.at,'atrasada','atrasadas')}</span>`:''}</button>`}
+function vAcomp(){
+  if(!CFG){S.view='list';return vList()}
+  $('#ttl').textContent='Acompanhamento';$('#back').hidden=false;
+  const R=acRows(),I=acInsps(),F=S.acF||(S.acF={p:'',s:'',o:'prazo'});if(F.p&&!docs.has(F.p))F.p='';
+  const T=acCount(R),sel=R.filter(r=>(!F.p||r.i.id===F.p)&&(!F.s||(F.s==='atrasada'?r.o.sit==='atrasada':r.o.st===F.s)));
+  const by={prazo:(x,y)=>(x.o.st==='concluida')-(y.o.st==='concluida')||String(x.o.prazo||'9999').localeCompare(String(y.o.prazo||'9999'))||x.n-y.n,
+    risco:(x,y)=>(y.o.s.pont??-1)-(x.o.s.pont??-1),gut:(x,y)=>(y.o.s.gut??-1)-(x.o.s.gut??-1),predio:()=>0}[F.o]||(()=>0);
+  sel.sort(by);
+  const box=(l,n,f)=>`<button class="rb acb" data-acfil="${f}" aria-pressed="${!!f&&F.s===f}"><span class="mut">${l}</span><span class="n">${n}</span></button>`;
+  $('#main').innerHTML=`<h2>Acompanhamento das anomalias</h2>
+  <p class="mut">Todas as anomalias dos prédios inspecionados. Toque numa anomalia para atualizar o status, o prazo e a conclusão: a equipe vê na hora.</p>
+  <div class="row"><button class="btn pri" data-a="compxl" ${R.length&&dl?'':'disabled'}>${IC.xl} Exportar compilado (.xlsx)</button></div><div id="cres">${CRES}</div>
+  ${dlKnown&&!dl?'<p class="note">O download não está disponível nesta visualização. Abra o app pelo link, no navegador.</p>':''}
+  <div class="sum acs">${box('Anomalias',T.n,'')}${box('Abertas',T.ab,'aberta')}${box('Em andamento',T.an,'andamento')}${box('Concluídas',T.co,'concluida')}${box('Atrasadas',T.at,'atrasada')}</div>
+  <h3>Por prédio</h3>
+  ${I.length?I.map(i=>{const c=acCount(R.filter(r=>r.i===i)),pc=c.n?Math.round(c.co/c.n*100):0,d=i.d;
+    return `<button class="card acp" data-acp="${esc(i.id)}" aria-pressed="${F.p===i.id}"><span class="cb"><b>${esc(predio(i))}</b><span class="mut">${esc([d.tipo,d.unid,fdate(d.data)].filter(Boolean).join(' · '))}</span>
+     <span class="prog" title="${pc}% concluído"><i style="width:${pc}%"></i></span><span class="mut">${c.n?`${pc}% concluído · ${pl(c.n,'anomalia','anomalias')}`:'Sem anomalias'}</span>
+     <span class="bds">${c.ab?`<span class="bd ast-aberta">${pl(c.ab,'aberta','abertas')}</span>`:''}${c.an?`<span class="bd ast-andamento">${c.an} em andamento</span>`:''}${c.co?`<span class="bd ast-concluida">${pl(c.co,'concluída','concluídas')}</span>`:''}${c.at?`<span class="bd" style="background:#c81e1e;color:#fff">${pl(c.at,'atrasada','atrasadas')}</span>`:''}</span></span></button>`}).join('')
+   :'<div class="empty"><p><b>Nenhuma inspeção ainda.</b></p></div>'}
+  <h3>Anomalias${F.p||F.s?` <small class="mut">${sel.length} de ${R.length}</small>`:''}</h3>
+  <div class="grid acfl"><label class="f"><span>Prédio</span><select data-acpsel><option value="">Todos os prédios</option>${I.map(i=>`<option value="${esc(i.id)}"${F.p===i.id?' selected':''}>${esc(predio(i))}${i.d.data?' · '+esc(fdate(i.d.data)):''}</option>`).join('')}</select></label>
+   <label class="f"><span>Ordenar por</span><select data-acord>${[['prazo','Prazo'],['risco','Risco'],['gut','GUT'],['predio','Prédio e nº do item']].map(([k,l])=>`<option value="${k}"${F.o===k?' selected':''}>${l}</option>`).join('')}</select></label></div>
+  ${F.p||F.s?'<div class="row"><button class="btn sm" data-acfil="limpar">Limpar filtros</button></div>':''}
+  ${sel.length?sel.map(acCard).join(''):`<div class="empty"><p><b>${R.length?'Nenhuma anomalia com esse filtro.':'Nenhuma anomalia registrada ainda.'}</b></p></div>`}`;
+  hydrate($('#main'))}
+function acCard({a,i,n,o}){const f=a.fotos[0],id=esc(a.id);
+  return `<details class="acd" data-acid="${id}"${S.acOpen===a.id?' open':''}><summary class="an"><span class="th" ${bg(f)}>${f?'':'sem foto'}</span>
+   <span><b>${esc(predio(i))} · ${n}. ${esc(a.manif||'Manifestação não informada')}</b><small>${esc([a.elem,a.mat].filter(Boolean).join(' · ')||'Elemento não informado')}</small>${a.loc?`<small class="loc">${IC.pin}${esc(cut(a.loc,70))}</small>`:''}
+   <span class="bds"><span class="bd ast-${o.st}">${esc(astL(o.st))}</span>${o.sit==='concluida'?'':acBadge(o)}${o.prazo&&o.st!=='concluida'?`<span class="bd pe">Prazo ${fdate(o.prazo)}</span>`:''}${o.concl?`<span class="bd pe">Em ${fdate(o.concl)}</span>`:''}${o.s.nivel?badge(CFG.calc.risk,o.s.nivel,o.s.pont):''}${o.s.prio?badge(CFG.calc.gutp,o.s.prio,'GUT '+o.s.gut):''}</span></span></summary>
+   <div class="acf"><div class="seg2" role="group" aria-label="Status">${AST.map(([k,l])=>`<button data-acst="${k}" data-acid="${id}" aria-pressed="${o.st===k}">${l}</button>`).join('')}</div>
+    <div class="grid"><label class="f"><span>Prazo</span><input type="date" data-acf="prazo" data-acid="${id}" value="${esc(o.prazo)}"><small>${o.pm?`Pelo modelo: ${fdate(o.pm)}. Apague para voltar a ele.`:'Sem prazo pelo modelo: falta o risco, a GUT ou a data da inspeção.'}</small></label>
+     <label class="f"><span>Concluída em</span><input type="date" data-acf="concl" data-acid="${id}" value="${esc(o.concl)}"${o.st==='concluida'?'':' disabled'}></label>
+     <label class="f w"><span>Observação do acompanhamento</span><textarea data-acf="obs" data-acid="${id}" placeholder="O que foi feito, pendências, número da OS…">${esc(o.obs)}</textarea></label></div>
+    ${a.acao||a.resp?`<p class="mut">${a.acao?`<b>${esc(CFG.lab.acao||'Ação recomendada')}:</b> ${esc(a.acao)}`:''}${a.acao&&a.resp?'<br>':''}${a.resp?`<b>${esc(CFG.lab.resp||'Responsável')}:</b> ${esc(a.resp)}`:''}</p>`:''}
+    ${o.em?`<p class="note">Atualizado por ${esc(o.por||'—')} em ${esc(new Date(o.em).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}</p>`:''}
+    <div class="row"><button class="btn sm" data-acgo="${id}">Abrir o item na inspeção</button></div></div></details>`}
+
+/* ---------- Excel compilado: abas Compilação, Acompanhamento e Critérios (planilha nova, com fórmulas) ---------- */
+function xlsxEsc(s){return String(s??'').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f￾￿]/g,'').slice(0,32000).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+const xCol=n=>{let s='';n++;while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=(n-m-1)/26}return s};
+const xSer=s=>isDate(s)?(Date.UTC(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10))-Date.UTC(1899,11,30))/864e5:'';
+const xSerT=ms=>{if(!ms)return '';const d=new Date(ms);return (Date.UTC(d.getFullYear(),d.getMonth(),d.getDate(),d.getHours(),d.getMinutes())-Date.UTC(1899,11,30))/864e5};
+// estilos (índices de cellXfs): 0 normal, 1 título, 2 subtítulo, 3 cabeçalho, 4 texto, 5 data, 6 número, 7 %, 8 total texto, 9 total número,
+// 10 total %, 11 nota, 12 texto a preencher, 13 data a preencher, 14 texto centralizado, 15 status a preencher, 16 total data, 17 data e hora, 18 cabeçalho a preencher
+const XSTY=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="dd/mm/yyyy hh:mm"/></numFmts>
+<fonts count="7"><font><sz val="10"/><name val="Arial"/><family val="2"/></font><font><b/><sz val="14"/><color rgb="FF1F3A5F"/><name val="Arial"/><family val="2"/></font><font><i/><sz val="10"/><color rgb="FF595959"/><name val="Arial"/><family val="2"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/><family val="2"/></font><font><b/><sz val="10"/><name val="Arial"/><family val="2"/></font><font><i/><sz val="9"/><color rgb="FF595959"/><name val="Arial"/><family val="2"/></font><font><b/><sz val="10"/><color rgb="FF1A1A1A"/><name val="Arial"/><family val="2"/></font></fonts>
+<fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F3A5F"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE7ECF2"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFD966"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right><top style="thin"><color rgb="FFBFBFBF"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom><diagonal/></border><border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right><top style="medium"><color rgb="FF1F3A5F"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="19"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="3" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
+<xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
+<xf numFmtId="9" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
+<xf numFmtId="0" fontId="4" fillId="3" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="1" fontId="4" fillId="3" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
+<xf numFmtId="9" fontId="4" fillId="3" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
+<xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="0"/></xf>
+<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf numFmtId="164" fontId="0" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
+<xf numFmtId="164" fontId="4" fillId="3" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
+<xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
+<xf numFmtId="0" fontId="6" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+<dxfs count="__N__">__DXF__</dxfs></styleSheet>`;
+// planilha a partir de linhas: cada célula é {v, s, f} (f = fórmula com o valor já calculado em v)
+function xSheet(rows,o){const out=[];
+  rows.forEach((row,ri)=>{if(!row)return;const r=ri+1,cs=[];
+    row.forEach((c,ci)=>{if(c==null)return;const ref=xCol(ci)+r,s=c.s?` s="${c.s}"`:'';
+      if(c.f){const num=typeof c.v==='number'&&isFinite(c.v);cs.push(`<c r="${ref}"${s}${num?'':' t="str"'}><f>${xlsxEsc(c.f)}</f><v>${num?c.v:xlsxEsc(c.v??'')}</v></c>`)}
+      else if(typeof c.v==='number'&&isFinite(c.v))cs.push(`<c r="${ref}"${s}><v>${c.v}</v></c>`);
+      else if(c.v!==''&&c.v!=null)cs.push(`<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${xlsxEsc(c.v)}</t></is></c>`);
+      else cs.push(`<c r="${ref}"${s}/>`)});
+    const ht=o.ht&&o.ht[ri];out.push(`<row r="${r}"${ht?` ht="${ht}" customHeight="1"`:''}>${cs.join('')}</row>`)});
+  const pane=o.fx||o.fy?`<pane${o.fx?` xSplit="${o.fx}"`:''}${o.fy?` ySplit="${o.fy}"`:''} topLeftCell="${xCol(o.fx||0)}${(o.fy||0)+1}" activePane="${o.fx&&o.fy?'bottomRight':o.fy?'bottomLeft':'topRight'}" state="frozen"/>`:'';
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>
+<sheetViews><sheetView workbookViewId="0"${o.sel?' tabSelected="1"':''} zoomScale="100">${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="13.2"/>
+<cols>${o.w.map((w,k)=>`<col min="${k+1}" max="${k+1}" width="${w}" customWidth="1"/>`).join('')}</cols>
+<sheetData>${out.join('')}</sheetData>${o.af?`<autoFilter ref="${o.af}"/>`:''}${o.merge&&o.merge.length?`<mergeCells count="${o.merge.length}">${o.merge.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells>`:''}
+${(o.cf||[]).map((c,k)=>`<conditionalFormatting sqref="${c.ref}">${c.rules.map(([dx,f],j)=>`<cfRule type="expression" dxfId="${dx}" priority="${k*10+j+1}"><formula>${xlsxEsc(f)}</formula></cfRule>`).join('')}</conditionalFormatting>`).join('')}
+${o.dv?`<dataValidations count="1"><dataValidation type="list" allowBlank="1" showErrorMessage="1" errorTitle="Status" error="Escolha Aberta, Em andamento ou Concluída." sqref="${o.dv}"><formula1>"Aberta,Em andamento,Concluída"</formula1></dataValidation></dataValidations>`:''}
+<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`}
+async function buildComp(){
+  const c=CFG.calc,R=acRows(),I=acInsps(),hl=CFG.hdrLab||{},lb=CFG.lab||{},td=today(),Q=s=>`'${s}'!`;
+  // nome do prédio igual nas abas (é a chave das fórmulas): repetidos ganham a data; sem curingas do Excel (* ? ~) nem sinais no começo
+  const key=t=>String(t).replace(/[*?~]/g,'-').replace(/^[<>=]+/,'').trim()||'Ativo sem TAG',lab=new Map(),cnt=new Map(),used=new Set();
+  for(const i of I){const k=key(predio(i)).toLowerCase();cnt.set(k,(cnt.get(k)||0)+1)}
+  for(const i of I){let t=key(predio(i));if(cnt.get(t.toLowerCase())>1&&i.d.data)t+=' · '+fdate(i.d.data);let u=t,n=2;while(used.has(u.toLowerCase()))u=`${t} (${n++})`;used.add(u.toLowerCase());lab.set(i.id,u)}
+  // aba Critérios (níveis em ordem crescente, como pede o PROCV aproximado / PROC)
+  const rk=[...c.risk].reverse(),gk=[...c.gutp].reverse(),r1=5,rN=r1+rk.length-1,gN=r1+gk.length-1;
+  const crit=[[{v:'Critérios do modelo usados nas fórmulas',s:1}],[{v:`Copiados de “${CFG.name}” na exportação. As abas Compilação e Acompanhamento usam estas tabelas para o nível de risco e a prioridade GUT.`,s:2}],null,
+    [{v:'Pontuação a partir de',s:3},{v:'Nível de risco',s:3},{v:'Prazo de tratativa (dias)',s:3},null,{v:'GUT a partir de',s:3},{v:'Prioridade',s:3},{v:'Prazo de tratativa (dias)',s:3}]];
+  for(let k=0;k<Math.max(rk.length,gk.length);k++){const x=rk[k],y=gk[k],dR=x&&c.dRisk?c.dRisk[x[1]]:undefined,dG=y&&c.dGut?c.dGut[y[1]]:undefined;
+    crit.push([x?{v:x[0],s:6}:null,x?{v:x[1],s:14}:null,x?{v:isFinite(dR)?dR:'',s:6}:null,null,y?{v:y[0],s:6}:null,y?{v:y[1],s:14}:null,y?{v:isFinite(dG)?dG:'',s:6}:null])}
+  const LR=`${Q('Critérios')}$A$${r1}:$A$${rN},${Q('Critérios')}$B$${r1}:$B$${rN}`,LG=`${Q('Critérios')}$E$${r1}:$E$${gN},${Q('Critérios')}$F$${r1}:$F$${gN}`;
+  // aba Acompanhamento: uma linha por anomalia
+  const AH=[hl.tag?`Prédio (${hl.tag})`:'Prédio (TAG)',hl.data||'Data da inspeção','Nº',hl.tipo||'Tipo de ativo',hl.unid||'Unidade','Localização',lb.elem||'Elemento',lb.mat||'Material',lb.manif||'Manifestação patológica',lb.causa||'Causa',lb.orig||'Origem','Descrição',
+    'Pontuação de risco','Nível de risco','G','U','T','GUT','Prioridade GUT',lb.acao||'Ação recomendada',lb.resp||'Responsável','Prazo','Status','Concluída em','Dias em aberto','Situação','Observações do acompanhamento','Atualizado por','Atualizado em'];
+  const AW=[20,12,6,18,16,28,22,12,26,22,18,40,11,13,5,5,5,7,13,36,16,12,15,12,9,21,32,18,16];
+  const ED=new Set([21,22,23,26]);   // Prazo, Status, Concluída em, Observações: colunas para preencher
+  const acc=[[{v:'Acompanhamento das anomalias',s:1}],[{v:'Preencha as colunas em amarelo (Prazo, Status, Concluída em e Observações). GUT, nível de risco, prioridade, dias em aberto e situação são fórmulas e se atualizam sozinhos.',s:2}],
+    [{v:`Gerado pelo app ${APPN} em ${new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}${ME?' por '+ME.nome:''}. Status vindos do app; o que mudar aqui não volta para o app.`,s:11}],
+    AH.map((h,k)=>({v:h,s:ED.has(k)?18:3}))],ht=[20,null,null,30];
+  const sitTxt=o=>SIT[o.sit][0];
+  R.forEach((x,k)=>{const r=5+k,{a,i,n,o}=x,s=o.s,d=i.d,gut=s.gut,dt=xSer(d.data);
+    const dias=!isDate(d.data)?'':o.st==='concluida'?(o.concl?ddays(d.data,o.concl):''):ddays(d.data,td);
+    acc.push([{v:lab.get(i.id),s:4},{v:dt,s:5},{v:n,s:6},{v:d.tipo||'',s:4},{v:d.unid||'',s:4},{v:a.loc,s:4},{v:a.elem,s:4},{v:a.mat,s:14},{v:a.manif,s:4},{v:a.causa,s:4},{v:a.orig,s:4},{v:a.descr,s:4},
+      {v:s.pont??'',s:6},{v:s.nivel||'',s:14,f:`IF(M${r}="","",IFERROR(LOOKUP(M${r},${LR}),${Q('Critérios')}$B$${r1}))`},
+      {v:a.g,s:6},{v:a.u,s:6},{v:a.t,s:6},{v:gut??'',s:6,f:`IF(COUNT(O${r}:Q${r})=3,O${r}*P${r}*Q${r},"")`},{v:s.prio||'',s:14,f:`IF(R${r}="","",IFERROR(LOOKUP(R${r},${LG}),${Q('Critérios')}$F$${r1}))`},
+      {v:a.acao,s:4},{v:a.resp,s:4},{v:xSer(o.prazo),s:13},{v:astL(o.st),s:15},{v:xSer(o.concl),s:13},
+      {v:dias,s:6,f:`IF(B${r}="","",IF(W${r}="Concluída",IF(X${r}="","",X${r}-B${r}),TODAY()-B${r}))`},
+      {v:sitTxt(o),s:14,f:`IF(W${r}="Concluída",IF(AND(X${r}<>"",V${r}<>"",X${r}>V${r}),"Concluída com atraso","Concluída"),IF(V${r}="","Sem prazo",IF(V${r}<TODAY(),"Atrasada",IF(V${r}-TODAY()<=30,"Vence em até 30 dias","No prazo"))))`},
+      {v:o.obs,s:12},{v:o.por,s:4},{v:xSerT(o.em),s:17}]);
+    const L=(t,w)=>Math.ceil(String(t||'').length/(w*1.15));ht.push(Math.min(110,Math.max(1,L(a.descr,40),L(a.acao,36),L(o.obs,32),L(a.loc,28),L(a.manif,26),L(a.causa,22))*12.75+2.25))});
+  const aN=Math.max(5,4+R.length),ed=`${aN+300}`;
+  const lvRules=(col,rows)=>rows.map((x,k)=>[4+Math.min(k,3),`$${col}5="${String(x[1]).replace(/"/g,'""')}"`]);
+  const accCf=[{ref:`Z5:Z${ed}`,rules:[[0,'$Z5="Atrasada"'],[1,'$Z5="Vence em até 30 dias"'],[2,'LEFT($Z5,9)="Concluída"'],[3,'$Z5="No prazo"']]},{ref:`W5:W${ed}`,rules:[[2,'$W5="Concluída"'],[8,'$W5="Em andamento"']]},
+    {ref:`N5:N${aN}`,rules:lvRules('N',c.risk)},{ref:`S5:S${aN}`,rules:lvRules('S',c.gutp)}];
+  // aba Compilação: uma linha por prédio, contando a aba Acompanhamento
+  const CH=[hl.tag?`Prédio (${hl.tag})`:'Prédio (TAG)',hl.tipo||'Tipo de ativo',hl.unid||'Unidade',hl.data||'Data da inspeção',hl.rt||'Responsável técnico',hl.os||'OS','Itens registrados','Anomalias','Abertas','Em andamento','Concluídas','Atrasadas','% concluído','Maior pontuação de risco','Nível de risco','Maior GUT','Prioridade GUT','Próximo prazo em aberto'];
+  const CW=[22,20,18,12,30,14,11,11,9,12,11,10,11,13,13,9,13,14],A=Q('Acompanhamento'),T=acCount(R);
+  const comp=[[{v:'Compilação das inspeções',s:1}],[{v:`${pl(I.length,'prédio','prédios')} · ${pl(R.length,'anomalia','anomalias')} · gerado em ${new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}${ME?' por '+ME.nome:''}`,s:2}],null,CH.map(h=>({v:h,s:3}))],cht=[20,null,null,40];
+  const mx=v=>v>0?v:'',num=[];
+  I.forEach((i,k)=>{const r=5+k,L=R.filter(x=>x.i===i),q=acCount(L),d=i.d,ka=`${A}$A:$A,$A${r}`;
+    const pm=Math.max(0,...L.map(x=>x.o.s.pont||0)),gm=Math.max(0,...L.map(x=>x.o.s.gut||0)),nx=L.filter(x=>x.o.st!=='concluida'&&x.o.prazo).map(x=>x.o.prazo).sort()[0]||'';
+    num.push({q,pm,gm,nx,nI:anoms(i.id).length});cht.push(Math.min(60,Math.max(1,Math.ceil(String(d.rt||'').length/34),Math.ceil(String(lab.get(i.id)).length/25)))*12.75+2.25);
+    comp.push([{v:lab.get(i.id),s:4},{v:d.tipo||'',s:4},{v:d.unid||'',s:4},{v:xSer(d.data),s:5},{v:d.rt||'',s:4},{v:d.os||'',s:4},{v:anoms(i.id).length,s:6},
+      {v:q.n,s:6,f:`COUNTIF(${A}$A:$A,$A${r})`},{v:q.ab,s:6,f:`COUNTIFS(${ka},${A}$W:$W,"Aberta")`},{v:q.an,s:6,f:`COUNTIFS(${ka},${A}$W:$W,"Em andamento")`},{v:q.co,s:6,f:`COUNTIFS(${ka},${A}$W:$W,"Concluída")`},
+      {v:q.at,s:6,f:`COUNTIFS(${ka},${A}$Z:$Z,"Atrasada")`},{v:q.n?q.co/q.n:'',s:7,f:`IF(H${r}=0,"",K${r}/H${r})`},
+      {v:mx(pm),s:6,f:`IF(COUNTIFS(${ka},${A}$M:$M,">0")=0,"",_xlfn.MAXIFS(${A}$M:$M,${A}$A:$A,$A${r}))`},{v:pm?lvl(c.risk,pm):'',s:14,f:`IF(N${r}="","",IFERROR(LOOKUP(N${r},${LR}),${Q('Critérios')}$B$${r1}))`},
+      {v:mx(gm),s:6,f:`IF(COUNTIFS(${ka},${A}$R:$R,">0")=0,"",_xlfn.MAXIFS(${A}$R:$R,${A}$A:$A,$A${r}))`},{v:gm?lvl(c.gutp,gm):'',s:14,f:`IF(P${r}="","",IFERROR(LOOKUP(P${r},${LG}),${Q('Critérios')}$F$${r1}))`},
+      {v:xSer(nx),s:5,f:`IF(COUNTIFS(${ka},${A}$W:$W,"<>Concluída",${A}$V:$V,">0")=0,"",_xlfn.MINIFS(${A}$V:$V,${A}$A:$A,$A${r},${A}$W:$W,"<>Concluída"))`}])});
+  const cN=4+I.length,tr=cN+1,sm=(L,k)=>L.reduce((n,x)=>n+k(x),0),pmT=Math.max(0,...num.map(x=>x.pm)),gmT=Math.max(0,...num.map(x=>x.gm)),nxT=num.map(x=>x.nx).filter(Boolean).sort()[0]||'';
+  const S5=(col)=>I.length?`SUM(${col}5:${col}${cN})`:'0';
+  comp.push([{v:'Total',s:8},{v:'',s:8},{v:'',s:8},{v:'',s:8},{v:'',s:8},{v:'',s:8},{v:sm(num,x=>x.nI),s:9,f:S5('G')},{v:T.n,s:9,f:S5('H')},{v:T.ab,s:9,f:S5('I')},{v:T.an,s:9,f:S5('J')},{v:T.co,s:9,f:S5('K')},{v:T.at,s:9,f:S5('L')},
+    {v:T.n?T.co/T.n:'',s:10,f:`IF(H${tr}=0,"",K${tr}/H${tr})`},{v:mx(pmT),s:9,f:I.length?`IF(COUNT(N5:N${cN})=0,"",MAX(N5:N${cN}))`:'""'},{v:pmT?lvl(c.risk,pmT):'',s:9,f:`IF(N${tr}="","",IFERROR(LOOKUP(N${tr},${LR}),${Q('Critérios')}$B$${r1}))`},
+    {v:mx(gmT),s:9,f:I.length?`IF(COUNT(P5:P${cN})=0,"",MAX(P5:P${cN}))`:'""'},{v:gmT?lvl(c.gutp,gmT):'',s:9,f:`IF(P${tr}="","",IFERROR(LOOKUP(P${tr},${LG}),${Q('Critérios')}$F$${r1}))`},{v:xSer(nxT),s:16,f:I.length?`IF(COUNT(R5:R${cN})=0,"",MIN(R5:R${cN}))`:'""'}]);
+  [null,`Abertas, em andamento, concluídas, atrasadas e % concluído são fórmulas que contam a aba Acompanhamento: mudou o Status lá, este resumo muda junto.`,
+   `Pontuação de risco, G, U, T e prazos vêm do app, calculados com os critérios do modelo “${CFG.name}” (aba Critérios). Itens de bom estado e pontos cegos não contam como anomalias.`,
+   'Situação: Atrasada = prazo vencido sem conclusão · Vence em até 30 dias · No prazo · Concluída (com atraso, se depois do prazo).'].forEach(t=>comp.push(t?[{v:t,s:11}]:null));
+  const compCf=[{ref:`L5:L${cN}`,rules:[[0,`$L5>0`]]},{ref:`O5:O${tr}`,rules:lvRules('O',c.risk)},{ref:`Q5:Q${tr}`,rules:lvRules('Q',c.gutp)}];
+  // dxfs: 0 atrasada, 1 vence, 2 concluída, 3 no prazo, 4..7 cores dos níveis (as mesmas do app), 8 em andamento
+  const dx=(bgc,fg,b)=>`<dxf><font>${b?'<b/>':''}<color rgb="FF${fg.slice(1)}"/></font><fill><patternFill patternType="solid"><fgColor rgb="FF${bgc.slice(1)}"/><bgColor rgb="FF${bgc.slice(1)}"/></patternFill></fill></dxf>`;
+  const dxf=[dx('#C81E1E','#FFFFFF',1),dx('#FFC000','#1A1A1A',1),dx('#2E7D32','#FFFFFF',1),dx('#92D050','#1A1A1A',0),...LV.map((b,k)=>dx(b.toUpperCase(),LT[k].length===4?'#FFFFFF':LT[k].toUpperCase(),1)),dx('#1F6FEB','#FFFFFF',1)];
+  const enc=new TextEncoder(),now=new Date().toISOString().replace(/\.\d+Z$/,'Z');
+  const files=[
+    {name:'[Content_Types].xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${[1,2,3].map(k=>`<Override PartName="/xl/worksheets/sheet${k}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>`},
+    {name:'_rels/.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>`},
+    {name:'docProps/core.xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Compilação e acompanhamento das anomalias</dc:title><dc:creator>${xlsxEsc(ME?ME.nome:APPN)}</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`},
+    {name:'docProps/app.xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>${xlsxEsc(APPN)}</Application></Properties>`},
+    {name:'xl/workbook.xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0"/></bookViews><sheets><sheet name="Compilação" sheetId="1" r:id="rId1"/><sheet name="Acompanhamento" sheetId="2" r:id="rId2"/><sheet name="Critérios" sheetId="3" r:id="rId3"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="1" hidden="1">'Acompanhamento'!$A$4:$AC$${aN}</definedName><definedName name="_xlnm.Print_Titles" localSheetId="1">'Acompanhamento'!$4:$4</definedName><definedName name="_xlnm.Print_Titles" localSheetId="0">'Compilação'!$4:$4</definedName></definedNames><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`},
+    {name:'xl/_rels/workbook.xml.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${[1,2,3].map(k=>`<Relationship Id="rId${k}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${k}.xml"/>`).join('')}<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+    {name:'xl/styles.xml',data:XSTY.replace('__N__',dxf.length).replace('__DXF__',dxf.join(''))},
+    {name:'xl/worksheets/sheet1.xml',data:xSheet(comp,{w:CW,ht:cht,fy:4,fx:1,sel:1,cf:compCf,merge:[]}),z:1},
+    {name:'xl/worksheets/sheet2.xml',data:xSheet(acc,{w:AW,ht,fy:4,fx:3,af:`A4:AC${aN}`,cf:accCf,dv:`W5:W${ed}`}),z:1},
+    {name:'xl/worksheets/sheet3.xml',data:xSheet(crit,{w:[20,22,22,4,16,22,22],ht:[20]}),z:1}];
+  return zipBlob(files.map(f=>({name:f.name,data:enc.encode(f.data),z:f.z||f.data.length>2000})))}
+async function exportComp(btn){if(!CFG||!dl)return;
+  await busy(btn,'Gerando planilha…',async()=>{let blob;try{blob=await buildComp()}catch(e){console.error(e);st('Erro ao montar a planilha');return}
+    const name=`Compilado e acompanhamento das anomalias - ${today()}.xlsx`;XF=new File([blob],name,{type:XMIME});let can=false;try{can=!!(navigator.share&&navigator.canShare&&navigator.canShare({files:[XF]}))}catch(e){}
+    const info=`${esc(name)} · ${Math.max(1,Math.round(XF.size/1024))} KB`;
+    if(can){CRES=`<div class="row"><button class="btn pri" data-a="xshare">Compartilhar planilha</button><button class="btn" data-a="xdown">Baixar</button></div><p class="note">${info}</p>`;const b=$('#cres');if(b)b.innerHTML=CRES;st('Planilha pronta');return}
+    try{await dl.save({filename:name,data:XF});st('Planilha salva')}catch(e){st(dlErr(e))}
+    CRES=`<div class="row"><button class="btn sm" data-a="xdown">Baixar de novo</button></div><p class="note">${info}</p>`;const b=$('#cres');if(b)b.innerHTML=CRES})}
+
 /* ---------- telas de acesso ---------- */
 function vBoot(){$('#ttl').textContent=APPN;$('#back').hidden=true;st('');$('#main').innerHTML='<div class="empty"><p><b>Abrindo…</b></p></div>'}
 function vLogin(){$('#ttl').textContent=APPN;$('#back').hidden=true;st('');if(AU.tab==='pw')return vReset();const up=AU.tab==='up',f=AU.f;
@@ -719,7 +952,7 @@ function vList(){
   $('#ttl').textContent=APPN;$('#back').hidden=true;
   const L=insps(),na=[...docs.values()].filter(o=>o.kind==='anom').length;
   $('#main').innerHTML=`<h2>Inspeções</h2>${CONF.aviso?`<p class="aviso">${esc(CONF.aviso)}</p>`:''}${whoHTML()}${instHTML()}
-  ${CFG?`<div class="hero">${frameSVG(na)}<div class="row sb"><span class="mut">Modelo: ${esc(CFG.name)}</span><button class="btn pri" data-a="nova">+ Nova inspeção</button></div></div>`:tplBusy?`<div class="empty"><p><b>${MODE==='local'?'Carregando':'Baixando'} o modelo do relatório…</b></p></div>`:MODE!=='local'&&!isAdm()?`<div class="empty"><p><b>Aguardando o modelo do relatório</b></p><p class="mut">Um administrador precisa enviar o arquivo do modelo. Depois disso, ele chega aqui sozinho.</p>${tplErr?`<p class="note">${esc(tplErr)}</p>`:''}<button class="btn sm" data-a="tplchk">Verificar de novo</button></div>`:MODE!=='local'?`<div class="empty"><p><b>Envie o modelo do relatório (.xlsx)</b></p><p class="mut">Escolha o arquivo “Relatório de Inspeção Estrutural - rev1.xlsx”. Ele fica guardado no banco, só para logins ativos, e todos os usuários passam a recebê-lo automaticamente.</p><label class="btn pri up">Escolher arquivo do modelo<input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" data-up="tpl"></label>${tplErr?`<p class="note">${esc(tplErr)}</p>`:''}</div>`:`<div class="empty"><p><b>Carregue o modelo do relatório (.xlsx)</b></p><p class="mut">Escolha o arquivo “Relatório de Inspeção Estrutural - rev1.xlsx”. Ele fica guardado neste aparelho e o app passa a usar as listas, os critérios e o layout dele.</p><label class="btn pri up">Escolher arquivo do modelo<input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" data-up="tpl"></label>${tplErr?`<p class="note">${esc(tplErr)}</p>`:''}</div>`}
+  ${CFG?`<div class="hero">${frameSVG(na)}<div class="row sb"><span class="mut">Modelo: ${esc(CFG.name)}</span><button class="btn pri" data-a="nova">+ Nova inspeção</button></div></div>${acEntry(L)}`:tplBusy?`<div class="empty"><p><b>${MODE==='local'?'Carregando':'Baixando'} o modelo do relatório…</b></p></div>`:MODE!=='local'&&!isAdm()?`<div class="empty"><p><b>Aguardando o modelo do relatório</b></p><p class="mut">Um administrador precisa enviar o arquivo do modelo. Depois disso, ele chega aqui sozinho.</p>${tplErr?`<p class="note">${esc(tplErr)}</p>`:''}<button class="btn sm" data-a="tplchk">Verificar de novo</button></div>`:MODE!=='local'?`<div class="empty"><p><b>Envie o modelo do relatório (.xlsx)</b></p><p class="mut">Escolha o arquivo “Relatório de Inspeção Estrutural - rev1.xlsx”. Ele fica guardado no banco, só para logins ativos, e todos os usuários passam a recebê-lo automaticamente.</p><label class="btn pri up">Escolher arquivo do modelo<input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" data-up="tpl"></label>${tplErr?`<p class="note">${esc(tplErr)}</p>`:''}</div>`:`<div class="empty"><p><b>Carregue o modelo do relatório (.xlsx)</b></p><p class="mut">Escolha o arquivo “Relatório de Inspeção Estrutural - rev1.xlsx”. Ele fica guardado neste aparelho e o app passa a usar as listas, os critérios e o layout dele.</p><label class="btn pri up">Escolher arquivo do modelo<input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" data-up="tpl"></label>${tplErr?`<p class="note">${esc(tplErr)}</p>`:''}</div>`}
   ${CFG?(L.length?L.map(i=>{const s=sumOf(i),nf=s.A.reduce((n,a)=>n+a.fotos.length,0)+i.gerais.length,d=i.d;
     return `<button class="card" data-open="${esc(i.id)}"><span class="cth" ${bg(i.gerais[0])}>${i.gerais.length?'':'sem foto'}</span><span class="cb"><b>${esc(d.tag||'Ativo sem TAG')}</b><span class="mut">${esc([d.tipo,d.unid].filter(Boolean).join(' · '))}</span><span class="mut">${esc([fdate(d.data),pl(s.A.length,'item','itens'),pl(nf,'foto','fotos'),MODE!=='local'&&i.cri?'por '+i.cri.nome:''].filter(Boolean).join(' · '))}</span><span class="bds">${s.nivel?badge(CFG.calc.risk,s.nivel,'Risco '+s.pmax):''}${s.prio?badge(CFG.calc.gutp,s.prio,'GUT '+s.gmax):''}${s.venc?`<span class="bd pe">${pl(s.venc,'prazo vencido','prazos vencidos')}</span>`:''}</span></span></button>`}).join('')
     :`<div class="empty"><p><b>Nenhuma inspeção ainda.</b></p><p class="mut">Comece uma em branco ou abra um exemplo preenchido para ver a planilha pronta.</p></div>`):''}
@@ -998,17 +1231,23 @@ async function loadTplFile(file){st('Lendo o modelo…');try{const z=await unzip
 
 /* ---------- eventos ---------- */
 function render(){if(MODE!=='local'&&AU.st!=='in'){AU.st==='out'?vLogin():AU.st==='pend'?vPend():vBoot();return}
-  if(S.view==='users'&&!isAdm())S.view='list';S.view==='list'?vList():S.view==='users'?vUsers():vEdit();saveNav()}
-function onRemote(){if(S.ed||AU.st!=='in'||S.view==='users')return;if(S.view==='edit'&&S.tab==='dados'){const c=document.querySelector('[data-tab=itens] .ct');if(c)c.textContent=anoms(S.cur).length}if(S.view==='list')vList();else if(S.tab!=='dados')vEdit();else if(!docs.has(S.cur)){S.view='list';vList()}}
+  if(S.view==='users'&&!isAdm())S.view='list';S.view==='list'?vList():S.view==='users'?vUsers():S.view==='acomp'&&CONF.acomp?vAcomp():vEdit();saveNav()}
+function onRemote(){if(S.ed||AU.st!=='in'||S.view==='users')return;if(S.view==='acomp'){acLater();return}if(S.view==='edit'&&S.tab==='dados'){const c=document.querySelector('[data-tab=itens] .ct');if(c)c.textContent=anoms(S.cur).length}if(S.view==='list')vList();else if(S.tab!=='dados')vEdit();else if(!docs.has(S.cur)){S.view='list';vList()}}
 document.addEventListener('click',async e=>{
-  const t=e.target.closest('[data-a],[data-open],[data-tab],[data-ea],[data-rmf],[data-rmg],[data-sort],[data-setcd],[data-setaf],[data-ens],[data-atab],[data-ua]');if(!t)return;
+  const t=e.target.closest('[data-a],[data-open],[data-tab],[data-ea],[data-rmf],[data-rmg],[data-sort],[data-setcd],[data-setaf],[data-ens],[data-atab],[data-ua],[data-acst],[data-acgo],[data-acfil],[data-acp]');if(!t)return;
   const a=t.dataset.a,i=docs.get(S.cur);if(S.outArm&&a!=='sair')S.outArm=false;
   if(t.dataset.atab){AU.tab=t.dataset.atab;AU.err='';AU.msg='';vLogin();return}
   if(t.dataset.ua){userAct(t);return}
-  if(t.dataset.open){S.cur=t.dataset.open;S.view='edit';S.tab='itens';S.delArm=false;render();scrollTo(0,0)}
+  if(t.dataset.open){S.cur=t.dataset.open;S.view='edit';S.tab='itens';S.from='';S.delArm=false;render();scrollTo(0,0)}
   else if(t.dataset.tab){S.tab=t.dataset.tab;S.delArm=false;render()}
   else if(t.dataset.sort){S.sort=t.dataset.sort;render()}
   else if(t.dataset.ea){const x=docs.get(t.dataset.ea);if(x)openA(x)}
+  else if(t.dataset.acst&&t.dataset.acid){const id=t.dataset.acid;acSet(id,{st:t.dataset.acst});S.acOpen=id;vAcomp();st('Status: '+astL(t.dataset.acst));const d=[...document.querySelectorAll('details.acd')].find(x=>x.dataset.acid===id);if(d)d.scrollIntoView({block:'nearest'})}
+  else if(t.dataset.acgo){const x=docs.get(t.dataset.acgo);if(x&&docs.has(x.insp)){S.cur=x.insp;S.view='edit';S.tab='itens';S.from='acomp';S.delArm=false;render();openA(x)}}
+  else if(t.dataset.acfil!==undefined&&S.acF){const f=t.dataset.acfil;if(f==='limpar'){S.acF.p='';S.acF.s=''}else S.acF.s=S.acF.s===f?'':f;vAcomp()}
+  else if(t.dataset.acp&&S.acF){S.acF.p=S.acF.p===t.dataset.acp?'':t.dataset.acp;vAcomp();if(S.acF.p){const hs=[...document.querySelectorAll('#main h3')],h3=hs[hs.length-1];if(h3)h3.scrollIntoView({behavior:'smooth',block:'start'})}}
+  else if(a==='acomp'&&CONF.acomp&&CFG){S.view='acomp';S.acOpen=null;render();scrollTo(0,0)}
+  else if(a==='compxl')exportComp(t);
   else if(t.dataset.setcd!==undefined&&S.ed){S.ed.cd=+t.dataset.setcd;saveDraft();drawSheet()}
   else if(t.dataset.setaf!==undefined&&S.ed){S.ed.af=t.dataset.setaf;saveDraft();drawSheet()}
   else if(t.dataset.ens!==undefined&&S.ed){S.ed.ensaio=S.ed.ensaio===t.dataset.ens?'':t.dataset.ens;saveDraft();drawSheet()}
@@ -1017,8 +1256,8 @@ document.addEventListener('click',async e=>{
   else if(a==='ex'&&CFG){const n=exemplo();S.cur=n.id;S.view='edit';S.tab='itens';render();scrollTo(0,0)}
   else if(a==='novaA'&&i)openA(newAnom(i.id));
   else if(a==='fechar')closeA(false);
-  else if(a==='salvarA'&&S.ed){S.rmF.forEach(dropPhoto);if(IA&&IA.url&&IA.auto&&S.ed.fotos.length&&!String(S.ed.descr||'').trim()&&!S.ed.ia&&!S.ed.iaPend&&!iaBusy.has(S.ed.id)){S.ed.iaPend={dev:DEV||nid(),em:Date.now()};if(!DEV){DEV=S.ed.iaPend.dev;IDB.put('meta','dev',DEV)}setTimeout(iaRun,1200)}S.last={elem:S.ed.elem,mat:S.ed.mat,resp:S.ed.resp,loc:S.ed.loc};persist(S.ed);closeA(true)}
-  else if(a==='dupA'&&S.ed){S.rmF.forEach(dropPhoto);persist(S.ed);const c=clone(S.ed);c.id=nid();c.created=Date.now();c.fotos=[];closeA(true);openA(c)}
+  else if(a==='salvarA'&&S.ed){S.rmF.forEach(dropPhoto);{const cur=docs.get(S.ed.id);if(cur&&cur.acomp&&(+cur.acomp.em||0)>(+(S.ed.acomp&&S.ed.acomp.em)||0))S.ed.acomp=cur.acomp}if(IA&&IA.url&&IA.auto&&S.ed.fotos.length&&!String(S.ed.descr||'').trim()&&!S.ed.ia&&!S.ed.iaPend&&!iaBusy.has(S.ed.id)){S.ed.iaPend={dev:DEV||nid(),em:Date.now()};if(!DEV){DEV=S.ed.iaPend.dev;IDB.put('meta','dev',DEV)}setTimeout(iaRun,1200)}S.last={elem:S.ed.elem,mat:S.ed.mat,resp:S.ed.resp,loc:S.ed.loc};persist(S.ed);closeA(true)}
+  else if(a==='dupA'&&S.ed){S.rmF.forEach(dropPhoto);persist(S.ed);const c=clone(S.ed);c.id=nid();c.created=Date.now();c.fotos=[];delete c.acomp;closeA(true);openA(c)}
   else if(a==='delA'&&S.ed){if(!S.delArm){S.delArm=true;drawSheet()}else{const o=docs.get(S.ed.id);new Set([...(o?o.fotos.map(f=>f.id):[]),...S.ed.fotos.map(f=>f.id),...S.rmF]).forEach(dropPhoto);S.newF=[];rmDoc(S.ed.id);closeA(true)}}
   else if(a==='delI'&&i&&canDelI(i)){if(!S.delArm){S.delArm=true;tDados(i)}else{anoms(i.id).forEach(x=>{x.fotos.forEach(f=>dropPhoto(f.id));rmDoc(x.id)});i.gerais.forEach(f=>dropPhoto(f.id));rmDoc(i.id);S.delArm=false;S.view='list';render()}}
   else if(t.dataset.rmg!==undefined&&i){const [f]=i.gerais.splice(+t.dataset.rmg,1);if(f)dropPhoto(f.id);persist(i);tDados(i)}
@@ -1048,13 +1287,15 @@ document.addEventListener('click',async e=>{
   else if(a==='xshare'&&XF){try{await navigator.share({files:[XF],title:XF.name})}catch(err){if(err&&err.name!=='AbortError')st('Não foi possível compartilhar')}}
   else if(a==='xdown'&&XF&&dl){try{await dl.save({filename:XF.name,data:XF})}catch(err){st(dlErr(err))}}
 });
-$('#back').onclick=()=>{S.view='list';S.delArm=false;render();scrollTo(0,0)};
+$('#back').onclick=()=>{S.view=S.view==='edit'&&S.from==='acomp'&&CONF.acomp?'acomp':'list';S.from='';S.delArm=false;render();scrollTo(0,0)};
 document.addEventListener('submit',e=>{const f=e.target;
   if(f.id==='fauth'){e.preventDefault();doAuth(f);return}
   if(f.dataset&&f.dataset.pwf){e.preventDefault();const pw=String(new FormData(f).get('pw')||''),uid=f.dataset.pwf;if(pw.length<6){st('A senha precisa ter pelo menos 6 caracteres');return}
     B.resetPw(uid,pw).then(()=>{S.pwFor='';st('Senha alterada. Passe a nova senha para a pessoa.');vUsers()},err=>st(msgErr(err)))}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(CAM.on)camClose();else if(S.ed)closeA(false)}});
-document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='crit')S.critOpen=e.target.open},true);
+document.addEventListener('toggle',e=>{const el=e.target;if(el&&el.id==='crit')S.critOpen=el.open;
+  if(el&&el.classList&&el.classList.contains('acd')){const id=el.dataset.acid;if(el.open)S.acOpen=id;else if(S.acOpen===id)S.acOpen=null}},true);
+document.addEventListener('pointerdown',()=>{S.ptr=true},true);document.addEventListener('pointerup',()=>{S.ptr=false},true);document.addEventListener('pointercancel',()=>{S.ptr=false},true);
 $('#main').addEventListener('input',e=>{const el=e.target,i=docs.get(S.cur);if(!i)return;
   if(el.dataset.k&&el.tagName!=='SELECT'){i.d[el.dataset.k]=el.value;if(el.dataset.k==='tag')$('#ttl').textContent=el.value||'Inspeção';persist(i)}
   else if(el.dataset.legg!==undefined){const f=i.gerais[+el.dataset.legg];if(f){f.leg=el.value;persist(i)}}});
@@ -1067,6 +1308,9 @@ document.addEventListener('change',async e=>{const el=e.target;
     if(el.tagName==='SELECT'&&el.dataset.ak){a[el.dataset.ak]=el.value;if(['manif','vi'].includes(el.dataset.ak))drawSheet();else upd();return}
     if(el.type==='radio'){const k=el.name;if(k==='mat'){a.mat=el.value;const L=(CFG.dep&&(CFG.dep.map[a.mat]||CFG.dep.def))||[];if(a.manif&&!L.includes(a.manif))a.manif='';drawSheet();return}
       a[k]=['cd','g','u','t'].includes(k)?+el.value:el.value;if(['cd','af'].includes(k))drawSheet();else upd();return}}
+  if(el.dataset&&el.dataset.acf&&el.dataset.acid){const k=el.dataset.acf,v=el.value;acSet(el.dataset.acid,k==='obs'?{obs:v.slice(0,1000)}:{[k]:isDate(v)?v:''});S.acOpen=el.dataset.acid;acRefresh(el.dataset.acid);return}
+  if(el.matches&&el.matches('[data-acpsel]')&&S.acF){S.acF.p=el.value;vAcomp();return}
+  if(el.matches&&el.matches('[data-acord]')&&S.acF){S.acF.o=el.value;vAcomp();return}
   if(el.type==='file'&&el.dataset.up){const files=[...el.files],kind=el.dataset.up;el.value='';if(!files.length)return;if(kind==='tpl'){loadTplFile(files[0]);return}addFiles(kind,files)}});
 async function addFiles(kind,files,again){const i=docs.get(S.cur);if(!i)return;st('Processando foto…');
   if(!again&&idbOK)IDB.put('meta','pend',{kind,cur:S.cur,files,ts:Date.now()});
@@ -1093,6 +1337,7 @@ async function restoreUI(){
   restored=true;
   {const fresh=t=>t&&Date.now()-t<12*36e5,nav=await IDB.get('meta','nav'),dr=await IDB.get('meta','draft');
     if(nav&&fresh(nav.ts)&&nav.view==='edit'&&docs.has(nav.cur)){S.view='edit';S.cur=nav.cur;S.tab=['dados','itens','rel'].includes(nav.tab)?nav.tab:'itens'}
+    else if(nav&&fresh(nav.ts)&&nav.view==='acomp'&&CONF.acomp)S.view='acomp';
     const de=dr&&fresh(dr.ts)&&docs.has(dr.cur)&&norm(dr.ed);
     const pd=await IDB.get('meta','pend'),pok=pd&&fresh(pd.ts)&&docs.has(pd.cur)&&Array.isArray(pd.files)&&pd.files.length;navOK=true;
     if(pok){S.view='edit';S.cur=pd.cur;S.tab=pd.kind==='capa'?'dados':'itens'}

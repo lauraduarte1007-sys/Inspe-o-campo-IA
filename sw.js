@@ -2,7 +2,7 @@
    O app abre na hora a partir do aparelho e se atualiza sozinho em segundo plano quando há conexão.
    Os dados (banco da equipe) nunca passam por este cache. */
 const P = 'inspecao-ia-';
-const V = P + 'f28177c245';
+const V = P + '7e9224537b';
 const SKIP = [];   // outros apps publicados dentro deste (cada um tem o próprio service worker)
 const SHELL = ['./', './index.html', './config.js', './firebase.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
 
